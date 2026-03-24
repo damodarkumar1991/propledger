@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PropLedger — Sign In</title>
+<meta name="description" content="Sign in to PropLedger — your AI-powered property management platform.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0a0f1e;
+    --navy-2: #0f1628;
+    --navy-3: #141d35;
+    --navy-4: #1a2444;
+    --gold: #c9a84c;
+    --gold-light: #e8c97a;
+    --gold-dim: rgba(201,168,76,0.12);
+    --gold-border: rgba(201,168,76,0.25);
+    --white: #f8f6f0;
+    --white-2: #e8e4d9;
+    --muted: #8892a4;
+    --muted-2: #5a6478;
+    --green: #2dd4a0;
+    --green-dim: rgba(45,212,160,0.1);
+    --red: #f87171;
+    --red-dim: rgba(248,113,113,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { height: 100%; }
+
+  body {
+    font-family: 'Outfit', sans-serif;
+    background: var(--navy);
+    color: var(--white);
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* ── NOISE TEXTURE ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* ── LEFT PANEL ── */
+  .left-panel {
+    position: relative;
+    background: var(--navy-2);
+    border-right: 1px solid rgba(255,255,255,0.05);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 48px 56px;
+    overflow: hidden;
+    z-index: 1;
+  }
+
+  /* Grid lines */
+  .left-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(201,168,76,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(201,168,76,0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 90% 90% at 30% 60%, black 30%, transparent 100%);
+  }
+
+  /* Gold glow */
+  .left-panel::after {
+    content: '';
+    position: absolute;
+    bottom: -100px;
+    left: -100px;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(201,168,76,0.08) 0%, transparent 65%);
+    pointer-events: none;
+  }
+
+  .left-logo {
+    position: relative;
+    z-index: 1;
+  }
+
+  .logo-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--white);
+    text-decoration: none;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-text span { color: var(--gold); }
+
+  .left-main {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 48px 0;
+  }
+
+  .left-tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 20px;
+  }
+
+  .left-headline {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(36px, 3.5vw, 52px);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -1px;
+    color: var(--white);
+    margin-bottom: 20px;
+  }
+
+  .left-headline em {
+    font-style: italic;
+    color: var(--gold);
+  }
+
+  .left-sub {
+    font-size: 15px;
+    color: var(--muted);
+    line-height: 1.7;
+    font-weight: 300;
+    max-width: 380px;
+    margin-bottom: 48px;
+  }
+
+  /* Feature pills */
+  .feature-pills {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .pill {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    transition: border-color 0.2s;
+    animation: slideIn 0.5s ease forwards;
+    opacity: 0;
+  }
+
+  .pill:nth-child(1) { animation-delay: 0.1s; }
+  .pill:nth-child(2) { animation-delay: 0.2s; }
+  .pill:nth-child(3) { animation-delay: 0.3s; }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-16px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .pill-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    background: var(--gold-dim);
+    border: 1px solid var(--gold-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    flex-shrink: 0;
+  }
+
+  .pill-text { flex: 1; }
+  .pill-title { font-size: 13px; font-weight: 600; color: var(--white); margin-bottom: 2px; }
+  .pill-desc { font-size: 12px; color: var(--muted); }
+
+  .pill-check {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--green-dim);
+    border: 1px solid rgba(45,212,160,0.25);
+    color: var(--green);
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  /* Bottom trust */
+  .left-footer {
+    position: relative;
+    z-index: 1;
+  }
+
+  .trust-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .trust-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted-2);
+  }
+
+  .trust-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--muted-2);
+  }
+
+  /* ── RIGHT PANEL ── */
+  .right-panel {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 48px 56px;
+    min-height: 100vh;
+  }
+
+  .auth-box {
+    width: 100%;
+    max-width: 420px;
+    animation: fadeUp 0.5s ease forwards;
+    opacity: 0;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .auth-header { margin-bottom: 36px; }
+
+  .auth-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: -0.8px;
+    margin-bottom: 8px;
+    line-height: 1.1;
+  }
+
+  .auth-sub {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+    font-weight: 300;
+  }
+
+  /* State switching */
+  .auth-state { display: none; }
+  .auth-state.active { display: block; }
+
+  /* Form */
+  .form-group { margin-bottom: 20px; }
+
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 8px;
+  }
+
+  .input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .input-icon {
+    position: absolute;
+    left: 14px;
+    color: var(--muted-2);
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+  }
+
+  input[type="email"],
+  input[type="text"] {
+    width: 100%;
+    background: var(--navy-2);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 13px 16px 13px 42px;
+    font-size: 15px;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 400;
+    color: var(--white);
+    outline: none;
+    transition: all 0.2s;
+    letter-spacing: 0.2px;
+  }
+
+  input[type="email"]::placeholder,
+  input[type="text"]::placeholder {
+    color: var(--muted-2);
+  }
+
+  input[type="email"]:focus,
+  input[type="text"]:focus {
+    border-color: var(--gold-border);
+    background: var(--navy-3);
+    box-shadow: 0 0 0 3px rgba(201,168,76,0.06);
+  }
+
+  input.error {
+    border-color: rgba(248,113,113,0.5);
+    box-shadow: 0 0 0 3px rgba(248,113,113,0.06);
+  }
+
+  /* OTP inputs */
+  .otp-group {
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+  }
+
+  .otp-input {
+    width: 52px !important;
+    height: 56px;
+    text-align: center;
+    font-size: 22px !important;
+    font-weight: 600 !important;
+    padding: 0 !important;
+    border-radius: 10px;
+    letter-spacing: 0 !important;
+  }
+
+  .otp-input:focus {
+    border-color: var(--gold-border) !important;
+    background: var(--navy-3) !important;
+  }
+
+  /* Buttons */
+  .btn-submit {
+    width: 100%;
+    background: var(--gold);
+    color: var(--navy);
+    border: none;
+    border-radius: 10px;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+    cursor: pointer;
+    transition: all 0.25s;
+    letter-spacing: 0.2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .btn-submit:hover:not(:disabled) {
+    background: var(--gold-light);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(201,168,76,0.2);
+  }
+
+  .btn-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-ghost-sm {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: 'Outfit', sans-serif;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-ghost-sm:hover {
+    border-color: rgba(255,255,255,0.18);
+    color: var(--white-2);
+    background: rgba(255,255,255,0.03);
+  }
+
+  /* Divider */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 24px 0;
+    color: var(--muted-2);
+    font-size: 12px;
+    letter-spacing: 0.5px;
+  }
+
+  .divider::before,
+  .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,0.07);
+  }
+
+  /* Alert messages */
+  .alert {
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 20px;
+    display: none;
+  }
+
+  .alert.show { display: flex; align-items: flex-start; gap: 10px; }
+
+  .alert-success {
+    background: var(--green-dim);
+    border: 1px solid rgba(45,212,160,0.2);
+    color: var(--green);
+  }
+
+  .alert-error {
+    background: var(--red-dim);
+    border: 1px solid rgba(248,113,113,0.2);
+    color: var(--red);
+  }
+
+  /* Magic link sent state */
+  .magic-sent {
+    text-align: center;
+    padding: 20px 0;
+  }
+
+  .magic-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--gold-dim);
+    border: 1px solid var(--gold-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    margin: 0 auto 24px;
+    animation: bounce 0.5s ease;
+  }
+
+  @keyframes bounce {
+    0% { transform: scale(0.5); opacity: 0; }
+    70% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .magic-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 10px;
+    letter-spacing: -0.5px;
+  }
+
+  .magic-email {
+    font-size: 14px;
+    color: var(--gold-light);
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+
+  .magic-desc {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 32px;
+  }
+
+  .magic-steps {
+    background: var(--navy-2);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: left;
+    margin-bottom: 24px;
+  }
+
+  .magic-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .magic-step + .magic-step { margin-top: 12px; }
+
+  .magic-step-num {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--gold-dim);
+    border: 1px solid var(--gold-border);
+    color: var(--gold);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .resend-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .resend-btn {
+    background: none;
+    border: none;
+    color: var(--gold);
+    font-size: 13px;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.2s;
+  }
+
+  .resend-btn:hover { color: var(--gold-light); }
+  .resend-btn:disabled { color: var(--muted-2); cursor: not-allowed; }
+
+  /* Toggle signin/signup */
+  .auth-toggle {
+    text-align: center;
+    margin-top: 28px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .auth-toggle button {
+    background: none;
+    border: none;
+    color: var(--gold);
+    font-size: 13px;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 4px;
+    transition: color 0.2s;
+  }
+
+  .auth-toggle button:hover { color: var(--gold-light); }
+
+  /* Demo login */
+  .demo-box {
+    margin-top: 28px;
+    padding: 16px;
+    background: rgba(201,168,76,0.05);
+    border: 1px dashed var(--gold-border);
+    border-radius: 10px;
+    text-align: center;
+  }
+
+  .demo-label {
+    font-size: 11px;
+    color: var(--muted-2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  .demo-btn {
+    background: transparent;
+    border: 1px solid var(--gold-border);
+    border-radius: 8px;
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: 'Outfit', sans-serif;
+    color: var(--gold-light);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .demo-btn:hover {
+    background: var(--gold-dim);
+  }
+
+  /* Loading spinner */
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(10,15,30,0.3);
+    border-top-color: var(--navy);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Back link */
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: none;
+    margin-bottom: 36px;
+    transition: color 0.2s;
+  }
+
+  .back-link:hover { color: var(--white-2); }
+
+  /* Responsive */
+  @media (max-width: 860px) {
+    body { grid-template-columns: 1fr; }
+    .left-panel { display: none; }
+    .right-panel { padding: 40px 24px; }
+    .auth-box { max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LEFT PANEL -->
+<div class="left-panel">
+  <div class="left-logo">
+    <a href="index.html" class="logo-text">Prop<span>Ledger</span></a>
+  </div>
+
+  <div class="left-main">
+    <span class="left-tag">India's AI Property Platform</span>
+    <h1 class="left-headline">Your property,<br><em>fully managed.</em></h1>
+    <p class="left-sub">Generate rental agreements, screen tenants and track rent — all powered by AI. Built for Indian landlords.</p>
+
+    <div class="feature-pills">
+      <div class="pill">
+        <div class="pill-icon">📝</div>
+        <div class="pill-text">
+          <div class="pill-title">AI Rental Agreements</div>
+          <div class="pill-desc">India-compliant docs in 3 minutes</div>
+        </div>
+        <div class="pill-check">✓</div>
+      </div>
+      <div class="pill">
+        <div class="pill-icon">🔍</div>
+        <div class="pill-text">
+          <div class="pill-title">Tenant Screening</div>
+          <div class="pill-desc">Aadhaar, credit & background checks</div>
+        </div>
+        <div class="pill-check">✓</div>
+      </div>
+      <div class="pill">
+        <div class="pill-icon">💰</div>
+        <div class="pill-text">
+          <div class="pill-title">Rent Tracker</div>
+          <div class="pill-desc">Auto-reminders via SMS & email</div>
+        </div>
+        <div class="pill-check">✓</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="left-footer">
+    <div class="trust-row">
+      <div class="trust-item">
+        <div class="trust-dot"></div>
+        IT Act 2000 compliant
+      </div>
+      <div class="trust-item">
+        <div class="trust-dot"></div>
+        No broker fees
+      </div>
+      <div class="trust-item">
+        <div class="trust-dot"></div>
+        Built in India 🇮🇳
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="right-panel">
+  <div class="auth-box">
+
+    <a href="index.html" class="back-link">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      Back to PropLedger
+    </a>
+
+    <!-- STATE 1: Enter email -->
+    <div class="auth-state active" id="state-email">
+      <div class="auth-header">
+        <h1 class="auth-title" id="auth-title">Welcome back</h1>
+        <p class="auth-sub" id="auth-sub">Enter your email and we'll send you a magic link to sign in instantly — no password needed.</p>
+      </div>
+
+      <div class="alert alert-error" id="email-error">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span id="email-error-text">Please enter a valid email address.</span>
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <div class="input-wrap">
+          <span class="input-icon">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </span>
+          <input type="email" id="email" placeholder="you@example.com" autocomplete="email" />
+        </div>
+      </div>
+
+      <button class="btn-submit" id="send-link-btn" onclick="sendMagicLink()">
+        <span id="send-btn-text">Send Magic Link</span>
+        <div class="spinner" id="send-spinner"></div>
+        <svg id="send-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+
+      <div class="divider">or continue with</div>
+
+      <button class="btn-submit" style="background: var(--navy-3); color: var(--white-2); border: 1px solid rgba(255,255,255,0.1); margin-top: 0;" onclick="showOTPState()">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+        Sign in with OTP instead
+      </button>
+
+      <div class="demo-box">
+        <div class="demo-label">Try without signing up</div>
+        <button class="demo-btn" onclick="goToDashboard()">✨ Open Demo Dashboard</button>
+      </div>
+
+      <div class="auth-toggle">
+        Don't have an account?
+        <button onclick="toggleMode()">Create one free</button>
+      </div>
+    </div>
+
+    <!-- STATE 2: Magic link sent -->
+    <div class="auth-state" id="state-sent">
+      <div class="magic-sent">
+        <div class="magic-icon">✉️</div>
+        <div class="magic-title">Check your inbox</div>
+        <div class="magic-email" id="sent-email-display"></div>
+        <div class="magic-desc">We've sent a magic sign-in link to your email. Click it to access your PropLedger dashboard instantly.</div>
+
+        <div class="magic-steps">
+          <div class="magic-step">
+            <div class="magic-step-num">1</div>
+            <div>Open your email inbox and look for a message from <strong style="color: var(--white-2);">hello@propledger.in</strong></div>
+          </div>
+          <div class="magic-step">
+            <div class="magic-step-num">2</div>
+            <div>Click the <strong style="color: var(--white-2);">"Sign in to PropLedger"</strong> button in the email</div>
+          </div>
+          <div class="magic-step">
+            <div class="magic-step-num">3</div>
+            <div>You'll be taken straight to your dashboard — no password ever needed</div>
+          </div>
+        </div>
+
+        <div class="resend-row">
+          Didn't receive it?
+          <button class="resend-btn" id="resend-btn" onclick="resendLink()">Resend email</button>
+          <span id="resend-timer" style="display:none; color: var(--muted-2);">in <span id="timer-count">30</span>s</span>
+        </div>
+
+        <div style="margin-top: 20px;">
+          <button class="btn-ghost-sm" onclick="backToEmail()" style="width: 100%;">← Use a different email</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATE 3: OTP sign in -->
+    <div class="auth-state" id="state-otp">
+      <div class="auth-header">
+        <h1 class="auth-title">Enter your OTP</h1>
+        <p class="auth-sub">We've sent a 6-digit code to <span id="otp-email-display" style="color: var(--white-2); font-weight: 500;"></span></p>
+      </div>
+
+      <div class="alert alert-error" id="otp-error">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Incorrect code. Please try again.</span>
+      </div>
+
+      <div class="form-group">
+        <label>6-Digit Code</label>
+        <div class="otp-group">
+          <input type="text" class="otp-input" maxlength="1" id="otp-0" inputmode="numeric" pattern="[0-9]" />
+          <input type="text" class="otp-input" maxlength="1" id="otp-1" inputmode="numeric" pattern="[0-9]" />
+          <input type="text" class="otp-input" maxlength="1" id="otp-2" inputmode="numeric" pattern="[0-9]" />
+          <input type="text" class="otp-input" maxlength="1" id="otp-3" inputmode="numeric" pattern="[0-9]" />
+          <input type="text" class="otp-input" maxlength="1" id="otp-4" inputmode="numeric" pattern="[0-9]" />
+          <input type="text" class="otp-input" maxlength="1" id="otp-5" inputmode="numeric" pattern="[0-9]" />
+        </div>
+      </div>
+
+      <button class="btn-submit" id="verify-btn" onclick="verifyOTP()">
+        <span>Verify & Sign In</span>
+        <div class="spinner" id="verify-spinner"></div>
+      </button>
+
+      <div style="display: flex; gap: 10px; margin-top: 14px;">
+        <button class="btn-ghost-sm" style="flex:1" onclick="backToEmail()">← Back</button>
+        <button class="btn-ghost-sm" style="flex:1" onclick="resendOTP()">Resend OTP</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  let currentMode = 'signin'; // 'signin' | 'signup'
+  let currentEmail = '';
+  let resendTimer = null;
+
+  // ── Toggle signin/signup ──
+  function toggleMode() {
+    currentMode = currentMode === 'signin' ? 'signup' : 'signin';
+    const title = document.getElementById('auth-title');
+    const sub = document.getElementById('auth-sub');
+    const toggle = document.querySelector('.auth-toggle');
+
+    if (currentMode === 'signup') {
+      title.textContent = 'Create your account';
+      sub.textContent = "Enter your email to get started. We'll send you a magic link — no password needed.";
+      toggle.innerHTML = 'Already have an account? <button onclick="toggleMode()">Sign in</button>';
+    } else {
+      title.textContent = 'Welcome back';
+      sub.textContent = "Enter your email and we'll send you a magic link to sign in instantly — no password needed.";
+      toggle.innerHTML = "Don't have an account? <button onclick=\"toggleMode()\">Create one free</button>";
+    }
+  }
+
+  // ── Send magic link ──
+  async function sendMagicLink() {
+    const emailInput = document.getElementById('email');
+    const email = emailInput.value.trim();
+    const errorBox = document.getElementById('email-error');
+    const errorText = document.getElementById('email-error-text');
+
+    // Validate
+    if (!email || !email.includes('@') || !email.includes('.')) {
+      emailInput.classList.add('error');
+      errorText.textContent = 'Please enter a valid email address.';
+      errorBox.classList.add('show');
+      return;
+    }
+
+    emailInput.classList.remove('error');
+    errorBox.classList.remove('show');
+    currentEmail = email;
+
+    // Loading state
+    setLoading('send-link-btn', 'send-spinner', 'send-icon', 'send-btn-text', true, 'Sending...');
+
+    // Simulate API call (replace with Supabase auth.signInWithOtp)
+    await new Promise(r => setTimeout(r, 1400));
+
+    setLoading('send-link-btn', 'send-spinner', 'send-icon', 'send-btn-text', false, 'Send Magic Link');
+
+    // Show sent state
+    document.getElementById('sent-email-display').textContent = email;
+    showState('state-sent');
+    startResendTimer();
+  }
+
+  // ── Show OTP state ──
+  function showOTPState() {
+    const email = document.getElementById('email').value.trim();
+    if (!email || !email.includes('@')) {
+      document.getElementById('email').focus();
+      document.getElementById('email').classList.add('error');
+      document.getElementById('email-error').classList.add('show');
+      return;
+    }
+    currentEmail = email;
+    document.getElementById('otp-email-display').textContent = email;
+    showState('state-otp');
+    setTimeout(() => document.getElementById('otp-0').focus(), 100);
+  }
+
+  // ── Verify OTP ──
+  async function verifyOTP() {
+    const otp = Array.from({length: 6}, (_, i) =>
+      document.getElementById(`otp-${i}`).value
+    ).join('');
+
+    if (otp.length < 6) {
+      document.getElementById('otp-error').classList.add('show');
+      return;
+    }
+
+    document.getElementById('otp-error').classList.remove('show');
+
+    const btn = document.getElementById('verify-btn');
+    btn.disabled = true;
+    document.getElementById('verify-spinner').style.display = 'block';
+
+    await new Promise(r => setTimeout(r, 1200));
+
+    // Demo: any 6-digit code works → go to dashboard
+    goToDashboard();
+  }
+
+  // ── Go to dashboard ──
+  function goToDashboard() {
+    window.location.href = 'dashboard.html';
+  }
+
+  // ── Resend logic ──
+  function resendLink() {
+    document.getElementById('resend-btn').disabled = true;
+    startResendTimer();
+    // In production: call Supabase auth.resend()
+  }
+
+  function resendOTP() {
+    // In production: call your OTP endpoint
+    alert('OTP resent to ' + currentEmail);
+  }
+
+  function startResendTimer() {
+    let count = 30;
+    const timerEl = document.getElementById('resend-timer');
+    const countEl = document.getElementById('timer-count');
+    const resendBtn = document.getElementById('resend-btn');
+
+    if (resendBtn) resendBtn.style.display = 'none';
+    if (timerEl) timerEl.style.display = 'inline';
+
+    resendTimer = setInterval(() => {
+      count--;
+      if (countEl) countEl.textContent = count;
+      if (count <= 0) {
+        clearInterval(resendTimer);
+        if (timerEl) timerEl.style.display = 'none';
+        if (resendBtn) {
+          resendBtn.style.display = 'inline';
+          resendBtn.disabled = false;
+        }
+      }
+    }, 1000);
+  }
+
+  // ── Back to email ──
+  function backToEmail() {
+    clearInterval(resendTimer);
+    showState('state-email');
+    document.getElementById('otp-error').classList.remove('show');
+    // Clear OTP fields
+    for (let i = 0; i < 6; i++) {
+      const el = document.getElementById(`otp-${i}`);
+      if (el) el.value = '';
+    }
+  }
+
+  // ── Show state ──
+  function showState(id) {
+    document.querySelectorAll('.auth-state').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  // ── Loading helper ──
+  function setLoading(btnId, spinnerId, iconId, textId, loading, text) {
+    const btn = document.getElementById(btnId);
+    const spinner = document.getElementById(spinnerId);
+    const icon = document.getElementById(iconId);
+    const textEl = document.getElementById(textId);
+    btn.disabled = loading;
+    spinner.style.display = loading ? 'block' : 'none';
+    if (icon) icon.style.display = loading ? 'none' : 'block';
+    textEl.textContent = text;
+  }
+
+  // ── OTP input auto-advance ──
+  document.addEventListener('DOMContentLoaded', () => {
+    for (let i = 0; i < 6; i++) {
+      const input = document.getElementById(`otp-${i}`);
+      if (!input) continue;
+
+      input.addEventListener('input', (e) => {
+        const val = e.target.value.replace(/\D/g, '');
+        e.target.value = val.slice(-1);
+        if (val && i < 5) document.getElementById(`otp-${i + 1}`).focus();
+      });
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !e.target.value && i > 0) {
+          document.getElementById(`otp-${i - 1}`).focus();
+        }
+      });
+
+      input.addEventListener('paste', (e) => {
+        const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+        if (pasted.length === 6) {
+          e.preventDefault();
+          pasted.split('').forEach((ch, idx) => {
+            const el = document.getElementById(`otp-${idx}`);
+            if (el) el.value = ch;
+          });
+          document.getElementById('otp-5').focus();
+        }
+      });
+    }
+
+    // Enter key on email
+    document.getElementById('email').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendMagicLink();
+    });
+  });
+</script>
+</body>
+</html>

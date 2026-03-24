@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PropLedger — Smart Property Management for Indian Landlords</title>
+<meta name="description" content="AI-powered property management platform for Indian landlords. Generate rental agreements, screen tenants, and track rent — all in one place.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0a0f1e;
+    --navy-2: #0f1628;
+    --navy-3: #141d35;
+    --navy-4: #1a2444;
+    --gold: #c9a84c;
+    --gold-light: #e8c97a;
+    --gold-dim: rgba(201,168,76,0.12);
+    --gold-border: rgba(201,168,76,0.25);
+    --white: #f8f6f0;
+    --white-2: #e8e4d9;
+    --muted: #8892a4;
+    --muted-2: #5a6478;
+    --green: #2dd4a0;
+    --green-dim: rgba(45,212,160,0.1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Outfit', sans-serif;
+    background: var(--navy);
+    color: var(--white);
+    overflow-x: hidden;
+  }
+
+  /* ── NOISE TEXTURE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 20px 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(10,15,30,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(201,168,76,0.1);
+  }
+
+  .logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: -0.5px;
+  }
+
+  .logo span { color: var(--gold); }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 36px;
+    list-style: none;
+  }
+
+  .nav-links a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: 0.3px;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover { color: var(--white); }
+
+  .btn-nav {
+    background: var(--gold);
+    color: var(--navy);
+    padding: 9px 22px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    letter-spacing: 0.3px;
+    transition: all 0.2s;
+  }
+
+  .btn-nav:hover {
+    background: var(--gold-light);
+    transform: translateY(-1px);
+  }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 120px 60px 80px;
+    overflow: hidden;
+  }
+
+  /* Grid background */
+  .hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(201,168,76,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(201,168,76,0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%);
+  }
+
+  /* Glow orbs */
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+  }
+
+  .orb-1 {
+    width: 500px; height: 500px;
+    background: rgba(201,168,76,0.07);
+    top: -100px; right: -100px;
+  }
+
+  .orb-2 {
+    width: 400px; height: 400px;
+    background: rgba(45,212,160,0.05);
+    bottom: -50px; left: -80px;
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    max-width: 860px;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--gold-dim);
+    border: 1px solid var(--gold-border);
+    border-radius: 100px;
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--gold-light);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.1s;
+  }
+
+  .badge-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--gold);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+
+  .hero h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(48px, 7vw, 84px);
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -1.5px;
+    color: var(--white);
+    margin-bottom: 24px;
+    opacity: 0;
+    animation: fadeUp 0.7s ease forwards 0.2s;
+  }
+
+  .hero h1 em {
+    font-style: italic;
+    color: var(--gold);
+  }
+
+  .hero p {
+    font-size: 18px;
+    font-weight: 300;
+    color: var(--muted);
+    line-height: 1.7;
+    max-width: 580px;
+    margin: 0 auto 40px;
+    opacity: 0;
+    animation: fadeUp 0.7s ease forwards 0.35s;
+  }
+
+  .hero-cta {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    animation: fadeUp 0.7s ease forwards 0.5s;
+  }
+
+  .btn-primary {
+    background: var(--gold);
+    color: var(--navy);
+    padding: 14px 32px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    letter-spacing: 0.2px;
+    transition: all 0.25s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-primary:hover {
+    background: var(--gold-light);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(201,168,76,0.25);
+  }
+
+  .btn-secondary {
+    color: var(--white-2);
+    padding: 14px 24px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 400;
+    text-decoration: none;
+    border: 1px solid rgba(255,255,255,0.1);
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-secondary:hover {
+    border-color: rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.04);
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 48px;
+    justify-content: center;
+    margin-top: 64px;
+    padding-top: 48px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    opacity: 0;
+    animation: fadeUp 0.7s ease forwards 0.65s;
+  }
+
+  .stat { text-align: center; }
+
+  .stat-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: -1px;
+  }
+
+  .stat-num span { color: var(--gold); }
+
+  .stat-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    font-weight: 400;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── SECTION SHARED ── */
+  section { position: relative; z-index: 1; }
+
+  .section-label {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 16px;
+  }
+
+  .section-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(32px, 4vw, 48px);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+    color: var(--white);
+    margin-bottom: 16px;
+  }
+
+  .section-sub {
+    font-size: 16px;
+    color: var(--muted);
+    line-height: 1.7;
+    font-weight: 300;
+  }
+
+  /* ── PROBLEM SECTION ── */
+  .problem {
+    padding: 100px 60px;
+    background: var(--navy-2);
+    border-top: 1px solid rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .problem-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    align-items: center;
+  }
+
+  .pain-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-top: 36px;
+  }
+
+  .pain-item {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 20px 24px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    transition: border-color 0.2s;
+  }
+
+  .pain-item:hover { border-color: rgba(201,168,76,0.2); }
+
+  .pain-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .pain-text { font-size: 14px; color: var(--muted); line-height: 1.6; }
+  .pain-text strong { color: var(--white-2); display: block; margin-bottom: 4px; font-size: 15px; font-weight: 500; }
+
+  .solution-card {
+    background: linear-gradient(135deg, var(--navy-3), var(--navy-4));
+    border: 1px solid var(--gold-border);
+    border-radius: 20px;
+    padding: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .solution-card::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 200px; height: 200px;
+    background: var(--gold-dim);
+    border-radius: 50%;
+    filter: blur(40px);
+  }
+
+  .solution-card h3 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 12px;
+    letter-spacing: -0.3px;
+  }
+
+  .solution-card p { font-size: 14px; color: var(--muted); line-height: 1.7; margin-bottom: 28px; }
+
+  .solution-features {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .sol-feat {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--white-2);
+  }
+
+  .sol-feat::before {
+    content: '✓';
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--green-dim);
+    border: 1px solid rgba(45,212,160,0.3);
+    color: var(--green);
+    font-size: 11px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-weight: 700;
+  }
+
+  /* ── FEATURES ── */
+  .features {
+    padding: 100px 60px;
+  }
+
+  .features-inner { max-width: 1100px; margin: 0 auto; }
+
+  .features-header { text-align: center; max-width: 560px; margin: 0 auto 60px; }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .feat-card {
+    background: var(--navy-2);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 32px;
+    transition: all 0.3s;
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .feat-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--gold-dim), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+    border-radius: 16px;
+  }
+
+  .feat-card:hover {
+    border-color: var(--gold-border);
+    transform: translateY(-4px);
+  }
+
+  .feat-card:hover::before { opacity: 1; }
+
+  .feat-icon {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    background: var(--gold-dim);
+    border: 1px solid var(--gold-border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    margin-bottom: 20px;
+  }
+
+  .feat-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--green);
+    background: var(--green-dim);
+    border: 1px solid rgba(45,212,160,0.2);
+    border-radius: 20px;
+    padding: 2px 10px;
+    margin-bottom: 16px;
+  }
+
+  .feat-tag.coming {
+    color: var(--muted);
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(255,255,255,0.08);
+  }
+
+  .feat-card h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--white);
+    margin-bottom: 10px;
+    letter-spacing: -0.2px;
+  }
+
+  .feat-card p { font-size: 14px; color: var(--muted); line-height: 1.7; }
+
+  /* ── HOW IT WORKS ── */
+  .how {
+    padding: 100px 60px;
+    background: var(--navy-2);
+    border-top: 1px solid rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .how-inner { max-width: 1100px; margin: 0 auto; }
+  .how-header { text-align: center; max-width: 520px; margin: 0 auto 64px; }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    position: relative;
+  }
+
+  .steps::before {
+    content: '';
+    position: absolute;
+    top: 28px;
+    left: 12%;
+    right: 12%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold-border), var(--gold-border), transparent);
+  }
+
+  .step {
+    text-align: center;
+    padding: 0 20px;
+    position: relative;
+  }
+
+  .step-num {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--navy-3);
+    border: 1px solid var(--gold-border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--gold);
+    margin: 0 auto 20px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .step h4 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--white);
+    margin-bottom: 8px;
+  }
+
+  .step p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  /* ── PRICING ── */
+  .pricing {
+    padding: 100px 60px;
+  }
+
+  .pricing-inner { max-width: 1000px; margin: 0 auto; }
+  .pricing-header { text-align: center; max-width: 500px; margin: 0 auto 56px; }
+
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+
+  .price-card {
+    background: var(--navy-2);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    padding: 36px;
+    position: relative;
+    transition: all 0.3s;
+  }
+
+  .price-card:hover { transform: translateY(-4px); }
+
+  .price-card.featured {
+    background: linear-gradient(135deg, var(--navy-3), var(--navy-4));
+    border-color: var(--gold-border);
+    transform: scale(1.03);
+  }
+
+  .price-card.featured:hover { transform: scale(1.03) translateY(-4px); }
+
+  .popular-badge {
+    position: absolute;
+    top: -12px; left: 50%; transform: translateX(-50%);
+    background: var(--gold);
+    color: var(--navy);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 4px 16px;
+    border-radius: 20px;
+  }
+
+  .plan-name {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .plan-price {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: -1px;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .plan-price sup { font-size: 22px; font-weight: 400; vertical-align: top; margin-top: 10px; color: var(--gold); }
+  .plan-price span { font-size: 16px; font-weight: 300; color: var(--muted); letter-spacing: 0; }
+
+  .plan-desc { font-size: 13px; color: var(--muted); margin-bottom: 28px; line-height: 1.5; }
+
+  .plan-divider { height: 1px; background: rgba(255,255,255,0.06); margin-bottom: 24px; }
+
+  .plan-features { list-style: none; display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+
+  .plan-features li {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: var(--white-2);
+  }
+
+  .plan-features li .check {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--green-dim);
+    border: 1px solid rgba(45,212,160,0.25);
+    color: var(--green);
+    font-size: 9px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-weight: 700;
+  }
+
+  .plan-features li.dimmed { opacity: 0.35; }
+  .plan-features li.dimmed .check { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); color: var(--muted-2); }
+
+  .btn-plan {
+    display: block;
+    text-align: center;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--white-2);
+  }
+
+  .btn-plan:hover { border-color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.04); }
+
+  .btn-plan.gold {
+    background: var(--gold);
+    color: var(--navy);
+    border-color: var(--gold);
+  }
+
+  .btn-plan.gold:hover { background: var(--gold-light); border-color: var(--gold-light); }
+
+  /* ── TESTIMONIALS ── */
+  .testimonials {
+    padding: 100px 60px;
+    background: var(--navy-2);
+    border-top: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .testimonials-inner { max-width: 1100px; margin: 0 auto; }
+  .testimonials-header { text-align: center; max-width: 480px; margin: 0 auto 56px; }
+
+  .testimonials-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .testimonial {
+    background: var(--navy-3);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 28px;
+    transition: border-color 0.2s;
+  }
+
+  .testimonial:hover { border-color: var(--gold-border); }
+
+  .stars { color: var(--gold); font-size: 14px; letter-spacing: 2px; margin-bottom: 14px; }
+
+  .testimonial-text {
+    font-size: 14px;
+    color: var(--white-2);
+    line-height: 1.75;
+    font-style: italic;
+    margin-bottom: 20px;
+  }
+
+  .testimonial-author { display: flex; align-items: center; gap: 12px; }
+
+  .author-avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--gold-dim);
+    border: 1px solid var(--gold-border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--gold);
+  }
+
+  .author-name { font-size: 13px; font-weight: 600; color: var(--white); }
+  .author-role { font-size: 12px; color: var(--muted); }
+
+  /* ── CTA SECTION ── */
+  .cta-section {
+    padding: 100px 60px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cta-section::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px; height: 400px;
+    background: radial-gradient(ellipse, rgba(201,168,76,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .cta-inner { position: relative; z-index: 1; max-width: 600px; margin: 0 auto; }
+
+  .cta-inner h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(36px, 5vw, 56px);
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: -1px;
+    margin-bottom: 16px;
+    line-height: 1.1;
+  }
+
+  .cta-inner p { font-size: 16px; color: var(--muted); margin-bottom: 36px; line-height: 1.6; }
+
+  .cta-note { font-size: 12px; color: var(--muted-2); margin-top: 16px; letter-spacing: 0.3px; }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding: 40px 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .footer-logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--white);
+  }
+
+  .footer-logo span { color: var(--gold); }
+
+  .footer-links { display: flex; gap: 28px; list-style: none; }
+  .footer-links a { font-size: 13px; color: var(--muted); text-decoration: none; transition: color 0.2s; }
+  .footer-links a:hover { color: var(--white); }
+
+  .footer-copy { font-size: 12px; color: var(--muted-2); }
+
+  /* ── SCROLL ANIMATIONS ── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    nav { padding: 16px 24px; }
+    .nav-links { display: none; }
+    .hero { padding: 120px 24px 60px; }
+    .hero-stats { gap: 24px; flex-wrap: wrap; }
+    .problem { padding: 60px 24px; }
+    .problem-inner { grid-template-columns: 1fr; gap: 40px; }
+    .features { padding: 60px 24px; }
+    .features-grid { grid-template-columns: 1fr; }
+    .how { padding: 60px 24px; }
+    .steps { grid-template-columns: 1fr 1fr; gap: 32px; }
+    .steps::before { display: none; }
+    .pricing { padding: 60px 24px; }
+    .pricing-grid { grid-template-columns: 1fr; }
+    .price-card.featured { transform: none; }
+    .testimonials { padding: 60px 24px; }
+    .testimonials-grid { grid-template-columns: 1fr; }
+    .cta-section { padding: 60px 24px; }
+    footer { flex-direction: column; gap: 20px; text-align: center; padding: 32px 24px; }
+    .footer-links { flex-wrap: wrap; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">Prop<span>Ledger</span></div>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#how">How it works</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="login.html" class="btn-nav">Get Started Free</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="hero-content">
+    <div class="hero-badge">
+      <div class="badge-dot"></div>
+      AI-Powered · Built for India · Zero Broker Fees
+    </div>
+    <h1>The <em>smartest</em> way to manage your property</h1>
+    <p>Generate rental agreements, screen tenants, and track rent — all powered by AI. Built specifically for Indian landlords who own 1 to 10 properties.</p>
+    <div class="hero-cta">
+      <a href="login.html" class="btn-primary">
+        Start for Free
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
+      <a href="#how" class="btn-secondary">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+        See how it works
+      </a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat">
+        <div class="stat-num">₹72<span>K</span></div>
+        <div class="stat-label">Avg. Monthly Rent Tracked</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">3<span>min</span></div>
+        <div class="stat-label">To Generate an Agreement</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">100<span>%</span></div>
+        <div class="stat-label">India Compliant Docs</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">₹0</div>
+        <div class="stat-label">No Broker Fees. Ever.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEM -->
+<section class="problem">
+  <div class="problem-inner">
+    <div class="reveal">
+      <span class="section-label">The Problem</span>
+      <h2 class="section-title">Managing property in India is still painfully manual</h2>
+      <p class="section-sub">Most Indian landlords juggle WhatsApp messages, paper agreements, and Excel sheets — while paying lawyers and brokers lakhs every year.</p>
+      <ul class="pain-list">
+        <li class="pain-item">
+          <div class="pain-icon">📄</div>
+          <div class="pain-text">
+            <strong>Expensive legal agreements</strong>
+            Lawyers charge ₹3,000–₹15,000 per agreement. Delays of days or weeks.
+          </div>
+        </li>
+        <li class="pain-item">
+          <div class="pain-icon">🔍</div>
+          <div class="pain-text">
+            <strong>No tenant verification</strong>
+            No easy way to check credit, background or identity before signing.
+          </div>
+        </li>
+        <li class="pain-item">
+          <div class="pain-icon">💸</div>
+          <div class="pain-text">
+            <strong>Missed rent & no reminders</strong>
+            Chasing tenants on WhatsApp every month. No automated tracking.
+          </div>
+        </li>
+      </ul>
+    </div>
+    <div class="reveal">
+      <div class="solution-card">
+        <h3>PropLedger changes everything</h3>
+        <p>One AI-powered platform that handles your entire rental lifecycle — from agreement to final receipt — without a single broker or lawyer on speed dial.</p>
+        <div class="solution-features">
+          <div class="sol-feat">Generate legally valid rental agreements in 3 minutes</div>
+          <div class="sol-feat">Screen tenants with Aadhaar, credit & background checks</div>
+          <div class="sol-feat">Track rent with auto-reminders via SMS & email</div>
+          <div class="sol-feat">Store & verify all property documents securely</div>
+          <div class="sol-feat">Pay with UPI, cards or Razorpay — 100% India-ready</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="features-inner">
+    <div class="features-header reveal">
+      <span class="section-label">What's Inside</span>
+      <h2 class="section-title">Everything a landlord needs</h2>
+      <p class="section-sub">Four powerful modules, one clean dashboard. No complexity. No broker.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feat-card reveal">
+        <div class="feat-icon">📝</div>
+        <div class="feat-tag">Live in V1</div>
+        <h3>AI Rental Agreement</h3>
+        <p>Generate a complete, legally-structured rental agreement in under 3 minutes. Covers all Indian law requirements — Transfer of Property Act, Registration Act, stamp duty guidance — and exports as a professional PDF.</p>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon">🔍</div>
+        <div class="feat-tag coming">Coming in V2</div>
+        <h3>Tenant Screening</h3>
+        <p>Verify tenant identity via Aadhaar OTP, check CIBIL credit score, and run a full background check — criminal records, employment, rental history — all in one automated report.</p>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon">💰</div>
+        <div class="feat-tag coming">Coming in V2</div>
+        <h3>Rent Tracker</h3>
+        <p>Track monthly payments, auto-send reminders via SMS and email, generate rent receipts as PDFs, and see your full payment history across all properties in one dashboard.</p>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon">📋</div>
+        <div class="feat-tag coming">Coming in V2</div>
+        <h3>Document Vault</h3>
+        <p>Upload property documents — title deeds, khata, sale agreements — and let AI scan and summarise them. Flag anomalies. Check RERA registration. Connect to a lawyer for human review.</p>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon">✍️</div>
+        <div class="feat-tag">Live in V1</div>
+        <h3>eSign via Aadhaar</h3>
+        <p>Sign rental agreements digitally using Aadhaar OTP-based eSign — legally valid under the IT Act 2000. No printing, no courier, no physical meeting required.</p>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon">🏠</div>
+        <div class="feat-tag coming">Coming in V2</div>
+        <h3>Property Dashboard</h3>
+        <p>Manage your entire property portfolio in one place. Track vacancy, rental yield, maintenance history, and tenant lifecycle across all your properties simultaneously.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how" id="how">
+  <div class="how-inner">
+    <div class="how-header reveal">
+      <span class="section-label">How It Works</span>
+      <h2 class="section-title">From signup to signed agreement in minutes</h2>
+      <p class="section-sub">No training. No onboarding calls. Just fill a form and let AI do the work.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-num">1</div>
+        <h4>Create free account</h4>
+        <p>Sign up with your email. No credit card required. You're in within 30 seconds.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step-num">2</div>
+        <h4>Add your property</h4>
+        <p>Enter property details, landlord info and tenant information in a simple step-by-step form.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step-num">3</div>
+        <h4>AI generates agreement</h4>
+        <p>Claude AI drafts a legally-structured rental agreement tailored to your property and terms.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step-num">4</div>
+        <h4>Sign & download</h4>
+        <p>eSign via Aadhaar OTP, download the PDF and your agreement is ready for registration.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing" id="pricing">
+  <div class="pricing-inner">
+    <div class="pricing-header reveal">
+      <span class="section-label">Simple Pricing</span>
+      <h2 class="section-title">Pay only for what you need</h2>
+      <p class="section-sub">Zero monthly cost on free tier. Upgrade when you're ready.</p>
+    </div>
+    <div class="pricing-grid">
+      <!-- Free -->
+      <div class="price-card reveal">
+        <div class="plan-name">Free</div>
+        <div class="plan-price">₹<span>0</span></div>
+        <div class="plan-desc">Perfect for trying PropLedger with your first property.</div>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li><span class="check">✓</span> 1 agreement per month</li>
+          <li><span class="check">✓</span> PDF download</li>
+          <li><span class="check">✓</span> Basic dashboard</li>
+          <li class="dimmed"><span class="check">✓</span> Tenant screening</li>
+          <li class="dimmed"><span class="check">✓</span> Rent tracking</li>
+          <li class="dimmed"><span class="check">✓</span> Document vault</li>
+        </ul>
+        <a href="login.html" class="btn-plan">Get Started Free</a>
+      </div>
+      <!-- Pro -->
+      <div class="price-card featured reveal">
+        <div class="popular-badge">Most Popular</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-price"><sup>₹</sup>1,499<span>/mo</span></div>
+        <div class="plan-desc">For landlords managing multiple properties who need full automation.</div>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li><span class="check">✓</span> Unlimited agreements</li>
+          <li><span class="check">✓</span> PDF + Aadhaar eSign</li>
+          <li><span class="check">✓</span> Tenant screening</li>
+          <li><span class="check">✓</span> Rent tracking & reminders</li>
+          <li><span class="check">✓</span> Document vault</li>
+          <li><span class="check">✓</span> Priority support</li>
+        </ul>
+        <a href="login.html" class="btn-plan gold">Start Pro Trial</a>
+      </div>
+      <!-- Pay per use -->
+      <div class="price-card reveal">
+        <div class="plan-name">Pay Per Use</div>
+        <div class="plan-price">₹<span>199</span></div>
+        <div class="plan-desc">Per agreement. No subscription needed. Just pay when you need it.</div>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li><span class="check">✓</span> Single agreement</li>
+          <li><span class="check">✓</span> PDF download</li>
+          <li><span class="check">✓</span> No subscription required</li>
+          <li class="dimmed"><span class="check">✓</span> Tenant screening</li>
+          <li class="dimmed"><span class="check">✓</span> Rent tracking</li>
+          <li class="dimmed"><span class="check">✓</span> Document vault</li>
+        </ul>
+        <a href="login.html" class="btn-plan">Buy Single Agreement</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="testimonials">
+  <div class="testimonials-inner">
+    <div class="testimonials-header reveal">
+      <span class="section-label">Early Users</span>
+      <h2 class="section-title">Landlords love PropLedger</h2>
+    </div>
+    <div class="testimonials-grid">
+      <div class="testimonial reveal">
+        <div class="stars">★★★★★</div>
+        <div class="testimonial-text">"I generated a complete rental agreement for my Bangalore flat in less than 5 minutes. Previously I was paying a lawyer ₹8,000 and waiting 3 days."</div>
+        <div class="testimonial-author">
+          <div class="author-avatar">R</div>
+          <div>
+            <div class="author-name">Rajesh Nair</div>
+            <div class="author-role">Landlord · 3 properties · Bangalore</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial reveal">
+        <div class="stars">★★★★★</div>
+        <div class="testimonial-text">"As an NRI managing properties in Mumbai remotely, PropLedger is exactly what I needed. Everything digital, everything tracked, no broker involved."</div>
+        <div class="testimonial-author">
+          <div class="author-avatar">P</div>
+          <div>
+            <div class="author-name">Priya Kapoor</div>
+            <div class="author-role">NRI Landlord · 2 properties · Mumbai</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial reveal">
+        <div class="stars">★★★★★</div>
+        <div class="testimonial-text">"The rent tracking and automatic reminders alone saved me from 3 awkward WhatsApp conversations with my tenant. Worth every rupee."</div>
+        <div class="testimonial-author">
+          <div class="author-avatar">A</div>
+          <div>
+            <div class="author-name">Anil Mehta</div>
+            <div class="author-role">Landlord · 5 properties · Delhi NCR</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="cta-inner reveal">
+    <h2>Ready to manage your property smarter?</h2>
+    <p>Join hundreds of Indian landlords using PropLedger to save time, money and stress. Free to start — no credit card needed.</p>
+    <a href="login.html" class="btn-primary" style="display:inline-flex; margin: 0 auto;">
+      Get Started Free Today
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </a>
+    <div class="cta-note">Free plan available · No credit card required · Cancel anytime</div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">Prop<span>Ledger</span></div>
+  <ul class="footer-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="#">Privacy Policy</a></li>
+    <li><a href="#">Terms of Use</a></li>
+    <li><a href="mailto:hello@propledger.in">Contact</a></li>
+  </ul>
+  <div class="footer-copy">© 2025 PropLedger · Built in India 🇮🇳</div>
+</footer>
+
+<script>
+  // Scroll reveal
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        setTimeout(() => entry.target.classList.add('visible'), i * 80);
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // Nav scroll effect
+  window.addEventListener('scroll', () => {
+    const nav = document.querySelector('nav');
+    nav.style.borderBottomColor = window.scrollY > 50
+      ? 'rgba(201,168,76,0.18)'
+      : 'rgba(201,168,76,0.1)';
+  });
+
+  // Smooth counter animation for stats
+  function animateCounter(el, target, suffix = '') {
+    let start = 0;
+    const duration = 1800;
+    const step = (timestamp) => {
+      if (!start) start = timestamp;
+      const progress = Math.min((timestamp - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      el.textContent = Math.floor(eased * target) + suffix;
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+</script>
+</body>
+</html>
