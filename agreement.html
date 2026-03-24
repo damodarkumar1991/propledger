@@ -578,18 +578,37 @@
     const prompt = buildPrompt();
 
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/generate-agreement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [{ role: 'user', content: prompt }]
+          landlordName: g('landlordName'),
+          landlordAddress: g('landlordAddress'),
+          propertyAddress: g('propertyAddress'),
+          propertyType: g('propertyType'),
+          furnished: g('furnished'),
+          city: g('city'),
+          tenantName: g('tenantName'),
+          tenantPhone: g('tenantPhone'),
+          tenantAadhaar: g('tenantAadhaar'),
+          tenantAddress: g('tenantAddress'),
+          occupation: g('occupation'),
+          occupants: g('occupants'),
+          rent: g('rent'),
+          deposit: g('deposit'),
+          startDate: g('startDate'),
+          duration: g('duration'),
+          maintenance: g('maintenance'),
+          noticePeriod: g('notice'),
+          increment: g('increment'),
+          utilities: g('utilities'),
+          specialClauses: g('clauses'),
         })
       });
 
       const data = await response.json();
-      generatedAgreement = data.content?.map(b => b.text || '').join('') || '';
+      if (!response.ok || !data.success) throw new Error(data.error || 'Generation failed');
+      generatedAgreement = data.agreement || '';
 
       // Show result
       document.getElementById('step-gen').style.display = 'none';

@@ -1,29 +1,21 @@
 // /api/generate-agreement.js
 // PropLedger — AI Rental Agreement Generator
-// Vercel Edge Function (Node.js)
-// Mirrors CrushTheCert's question generator pattern
+// Vercel Serverless Function (Node.js CommonJS)
 
-import Anthropic from '@anthropic-ai/sdk';
+const Anthropic = require('@anthropic-ai/sdk');
 
-const client = new Anthropic({
+const client = new Anthropic.default({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-export default async function handler(req, res) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN || 'https://propledger.in');
+module.exports = async function handler(req, res) {
+  // CORS headers — allow all origins for now
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
-  // Auth — validate Supabase JWT
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-  // Rate limit check — free plan = 1 agreement/month
-  // (Supabase DB check happens here in production)
 
   try {
     const {
