@@ -127,7 +127,8 @@
   .btn-download:hover{background:var(--gold-light);}
   .btn-copy{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 18px;font-size:13px;font-weight:500;color:var(--white-2);font-family:'Outfit',sans-serif;cursor:pointer;transition:all 0.2s;}
   .btn-new{background:transparent;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 18px;font-size:13px;font-weight:500;color:var(--muted);font-family:'Outfit',sans-serif;cursor:pointer;}
-  .agreement-text{white-space:pre-wrap;font-size:13px;line-height:1.9;color:var(--white-2);font-family:'Outfit',sans-serif;max-height:600px;overflow-y:auto;padding-right:8px;}
+  .agreement-text{font-size:13px;line-height:1.9;color:var(--white-2);font-family:'Outfit',sans-serif;max-height:680px;overflow-y:auto;padding-right:8px;}
+  .agreement-text strong{color:var(--white);font-weight:600;}
   .agreement-text::-webkit-scrollbar{width:4px;}
   .agreement-text::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px;}
   .disclaimer{margin-top:16px;padding:12px 16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;font-size:12px;color:var(--muted-2);line-height:1.6;}
@@ -250,6 +251,22 @@
             <input type="text" id="landlordAddress" placeholder="House No., Sector, City, State, PIN" />
           </div>
         </div>
+        <div class="section-divider"></div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;">Stamp Paper Details <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional — fill if printing on govt stamp paper)</span></div>
+        <div class="form-grid cols-3">
+          <div class="form-group">
+            <label>Stamp Duty Value (₹)</label>
+            <input type="text" id="stampDutyValue" placeholder="e.g. 100" />
+          </div>
+          <div class="form-group">
+            <label>Certificate No.</label>
+            <input type="text" id="certNo" placeholder="e.g. G0S2026B3351" />
+          </div>
+          <div class="form-group">
+            <label>GRN No.</label>
+            <input type="text" id="grnNo" placeholder="e.g. 147476744" />
+          </div>
+        </div>
         <div class="btn-row">
           <div></div>
           <button class="btn-primary" onclick="goTo(2)">Next: Tenant Details →</button>
@@ -333,6 +350,10 @@
           <div class="form-group span-2">
             <label>Full Property Address *</label>
             <input type="text" id="propertyAddress" placeholder="House/Flat No., Floor, Tower, Society, Sector, City, State, PIN" />
+          </div>
+          <div class="form-group">
+            <label>Society / Building Name</label>
+            <input type="text" id="societyName" placeholder="e.g. Orchid Petals, Prestige Elms" />
           </div>
           <div class="form-group">
             <label>City *</label>
@@ -719,6 +740,7 @@
       propertyAddress: g('propertyAddress'), city: g('city'), state: g('state'),
       propertyType: g('propertyType'), furnished: g('furnished'),
       bedrooms: g('bedrooms'), bathrooms: g('bathrooms'),
+      societyName: g('societyName'),
       furnitureItems: getFurnitureItems(),
       rent: g('rent'), rentInWords: g('rentInWords'),
       deposit: g('deposit'), depositInWords: g('depositInWords'),
@@ -733,6 +755,7 @@
       witness1Name: g('witness1Name'), witness1Address: g('witness1Address'),
       witness2Name: g('witness2Name'), witness2Address: g('witness2Address'),
       specialClauses: g('specialClauses'),
+      stampDutyValue: g('stampDutyValue'), certNo: g('certNo'), grnNo: g('grnNo'),
     };
 
     try {
@@ -747,7 +770,7 @@
 
       document.getElementById('step-gen').style.display = 'none';
       document.getElementById('step-result').style.display = 'block';
-      document.getElementById('agreement-output').textContent = generatedAgreement;
+      document.getElementById('agreement-output').innerHTML = renderAgreement(generatedAgreement);
       document.getElementById('result-title').textContent = `${g('agreementType')} — ${g('tenantName')}`;
       document.getElementById('result-meta').textContent = `${g('propertyAddress')} · ₹${parseInt(g('rent')).toLocaleString('en-IN')}/month · ${g('duration')} months · Generated ${new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}`;
 
@@ -776,25 +799,52 @@
     });
   }
 
+  function renderAgreement(text) {
+    // Convert **bold** markers to HTML bold, preserve line breaks and separators
+    return text
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/━+/g, '<span style="display:block;border-top:1px solid rgba(201,168,76,0.3);margin:10px 0;"></span>')
+      .replace(/\n/g, '<br>');
+  }
+
   function printAgreement() {
+    const rawText = generatedAgreement;
+    const htmlContent = rawText
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/━+/g, '<hr style="border:none;border-top:1px solid #ccc;margin:12px 0;">')
+      .replace(/\n/g, '<br>');
+
     const w = window.open('', '_blank');
-    w.document.write(`<!DOCTYPE html><html><head><title>${g('agreementType')} — PropLedger</title>
+    w.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>${g('agreementType')} — PropLedger</title>
     <style>
-      body{font-family:Georgia,serif;max-width:800px;margin:40px auto;line-height:1.9;color:#111;font-size:14px;}
-      h2{text-align:center;font-size:18px;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px;}
-      .meta{text-align:center;color:#555;margin-bottom:32px;font-size:13px;}
-      pre{white-space:pre-wrap;font-family:Georgia,serif;font-size:14px;line-height:1.9;}
-      .footer{text-align:center;margin-top:40px;font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:16px;}
-      table{width:100%;border-collapse:collapse;margin:16px 0;}
-      th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px;}
-      th{background:#f5f5f5;font-weight:600;}
-      @media print{.footer{display:none;}}
-    </style></head><body>
-    <pre>${generatedAgreement}</pre>
-    <div class="footer">Generated via PropLedger · propledger.in · This is an AI-generated document. Review with a lawyer before registration.</div>
+      @page { margin: 20mm 18mm 20mm 22mm; size: A4; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: 'Times New Roman', Times, serif; font-size: 12.5pt; line-height: 1.8; color: #111; background: white; padding: 0; }
+      .stamp-header { border: 2px solid #333; padding: 14px 20px; margin-bottom: 24px; background: #fafaf8; }
+      .stamp-title { font-size: 15pt; font-weight: bold; text-align: center; letter-spacing: 1px; margin-bottom: 6px; }
+      .stamp-row { display: flex; justify-content: space-between; font-size: 11pt; margin-top: 4px; }
+      .agreement-title { text-align: center; font-size: 16pt; font-weight: bold; letter-spacing: 2px; margin: 20px 0 6px; text-decoration: underline; }
+      .agreement-date { text-align: center; font-size: 11.5pt; margin-bottom: 20px; }
+      .content { font-size: 12pt; line-height: 1.85; }
+      strong { font-weight: bold; }
+      hr { border: none; border-top: 1px solid #555; margin: 10px 0; }
+      table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 11pt; }
+      th, td { border: 1px solid #888; padding: 5px 8px; text-align: left; vertical-align: top; }
+      th { background: #f0ede6; font-weight: bold; }
+      .footer { margin-top: 30px; text-align: center; font-size: 9pt; color: #888; border-top: 1px solid #ddd; padding-top: 10px; }
+      @media print { .no-print { display: none; } body { padding: 0; } }
+    </style>
+    </head><body>
+    <div class="content">${htmlContent}</div>
+    <div class="footer">Generated by PropLedger · propledger.in · Print on stamp paper of appropriate value before signing</div>
+    <div class="no-print" style="text-align:center;margin:20px;"><button onclick="window.print()" style="padding:10px 24px;background:#c9a84c;color:#000;border:none;border-radius:6px;font-size:14px;font-weight:bold;cursor:pointer;">🖨️ Print / Save as PDF</button></div>
     </body></html>`);
     w.document.close();
-    setTimeout(() => w.print(), 500);
+    setTimeout(() => w.focus(), 300);
   }
 
   function resetForm() {
