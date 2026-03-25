@@ -8,197 +8,135 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --navy: #0a0f1e; --navy-2: #0f1628; --navy-3: #141d35; --navy-4: #1a2444;
-    --sidebar: #080c18; --gold: #c9a84c; --gold-light: #e8c97a;
-    --gold-dim: rgba(201,168,76,0.1); --gold-border: rgba(201,168,76,0.22);
-    --white: #f8f6f0; --white-2: #e8e4d9; --muted: #8892a4; --muted-2: #5a6478;
-    --green: #2dd4a0; --green-dim: rgba(45,212,160,0.1); --green-border: rgba(45,212,160,0.2);
-    --red: #f87171; --red-dim: rgba(248,113,113,0.08);
+    --navy:#0a0f1e;--navy-2:#0f1628;--navy-3:#141d35;--navy-4:#1a2444;
+    --sidebar:#080c18;--gold:#c9a84c;--gold-light:#e8c97a;
+    --gold-dim:rgba(201,168,76,0.1);--gold-border:rgba(201,168,76,0.22);
+    --white:#f8f6f0;--white-2:#e8e4d9;--muted:#8892a4;--muted-2:#5a6478;
+    --green:#2dd4a0;--green-dim:rgba(45,212,160,0.1);--green-border:rgba(45,212,160,0.2);
+    --red:#f87171;--red-dim:rgba(248,113,113,0.08);
   }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Outfit',sans-serif;background:var(--navy);color:var(--white);display:flex;min-height:100vh;}
+  body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:0.3;}
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Outfit', sans-serif; background: var(--navy); color: var(--white); display: flex; min-height: 100vh; }
+  .sidebar{width:240px;background:var(--sidebar);border-right:1px solid rgba(255,255,255,0.05);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;}
+  .sidebar-logo{padding:28px 24px 24px;border-bottom:1px solid rgba(255,255,255,0.05);}
+  .logo-text{font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:700;color:var(--white);text-decoration:none;}
+  .logo-text span{color:var(--gold);}
+  .logo-sub{font-size:10px;color:var(--muted-2);letter-spacing:1.5px;text-transform:uppercase;margin-top:3px;}
+  .sidebar-nav{flex:1;padding:20px 12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;}
+  .nav-section-label{font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted-2);padding:12px 12px 6px;margin-top:8px;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:all 0.2s;color:var(--muted);font-size:13px;font-weight:400;text-decoration:none;position:relative;}
+  .nav-item:hover{background:rgba(255,255,255,0.04);color:var(--white-2);}
+  .nav-item.active{background:var(--gold-dim);color:var(--gold-light);font-weight:500;}
+  .nav-item.active::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:3px;background:var(--gold);border-radius:0 3px 3px 0;}
+  .nav-badge{margin-left:auto;background:var(--gold-dim);color:var(--gold);font-size:10px;font-weight:600;padding:1px 7px;border-radius:20px;border:1px solid var(--gold-border);}
+  .sidebar-footer{padding:16px 12px;border-top:1px solid rgba(255,255,255,0.05);}
+  .user-pill{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;}
+  .user-avatar{width:32px;height:32px;border-radius:50%;background:var(--gold-dim);border:1px solid var(--gold-border);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:700;color:var(--gold);flex-shrink:0;}
+  .user-name{font-size:13px;font-weight:500;color:var(--white-2);}
+  .user-plan{font-size:11px;color:var(--muted-2);}
 
-  body::before {
-    content: ''; position: fixed; inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-    pointer-events: none; z-index: 0; opacity: 0.3;
-  }
+  .main{margin-left:240px;flex:1;position:relative;z-index:1;}
+  .topbar{position:sticky;top:0;background:rgba(10,15,30,0.9);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,0.05);padding:16px 40px;display:flex;align-items:center;justify-content:space-between;z-index:40;}
+  .topbar h1{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:var(--white);letter-spacing:-0.3px;}
+  .topbar p{font-size:12px;color:var(--muted);margin-top:1px;}
+  .back-btn{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);background:none;border:none;font-family:'Outfit',sans-serif;cursor:pointer;transition:color 0.2s;text-decoration:none;}
+  .back-btn:hover{color:var(--white-2);}
 
-  /* ── SIDEBAR (same as dashboard) ── */
-  .sidebar {
-    width: 240px; background: var(--sidebar);
-    border-right: 1px solid rgba(255,255,255,0.05);
-    display: flex; flex-direction: column;
-    position: fixed; top: 0; left: 0; bottom: 0; z-index: 50;
-  }
+  .content{padding:28px 40px;max-width:960px;}
 
-  .sidebar-logo { padding: 28px 24px 24px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-  .logo-text { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 700; color: var(--white); text-decoration: none; }
-  .logo-text span { color: var(--gold); }
-  .logo-sub { font-size: 10px; color: var(--muted-2); letter-spacing: 1.5px; text-transform: uppercase; margin-top: 3px; }
+  /* STEPPER */
+  .stepper{display:flex;align-items:center;margin-bottom:28px;background:var(--navy-2);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:18px 28px;}
+  .step-item{display:flex;align-items:center;flex:1;}
+  .step-item:last-child{flex:none;}
+  .step-inner{display:flex;flex-direction:column;align-items:center;gap:0;}
+  .step-circle{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;transition:all 0.3s;}
+  .step-circle.done{background:var(--gold);color:var(--navy);}
+  .step-circle.active{background:var(--navy-3);border:2px solid var(--gold);color:var(--gold);}
+  .step-circle.todo{background:var(--navy-3);border:2px solid rgba(255,255,255,0.1);color:var(--muted-2);}
+  .step-label{font-size:11px;font-weight:500;margin-top:5px;transition:color 0.3s;white-space:nowrap;}
+  .step-label.active{color:var(--gold-light);}
+  .step-label.done{color:var(--muted);}
+  .step-label.todo{color:var(--muted-2);}
+  .step-connector{flex:1;height:1px;background:rgba(255,255,255,0.08);margin:0 6px;margin-bottom:18px;transition:background 0.3s;}
+  .step-connector.done{background:var(--gold);}
 
-  .sidebar-nav { flex: 1; padding: 20px 12px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
-  .nav-section-label { font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted-2); padding: 12px 12px 6px; margin-top: 8px; }
+  /* FORM */
+  .form-card{background:var(--navy-2);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:28px;margin-bottom:16px;animation:fadeUp 0.4s ease forwards;opacity:0;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  .form-section-title{font-size:15px;font-weight:600;color:var(--white);margin-bottom:4px;}
+  .form-section-sub{font-size:13px;color:var(--muted);margin-bottom:20px;}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .form-grid.cols-3{grid-template-columns:1fr 1fr 1fr;}
+  .form-grid.cols-1{grid-template-columns:1fr;}
+  .span-2{grid-column:1/-1;}
+  .form-group{display:flex;flex-direction:column;gap:6px;}
+  label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;}
+  input[type="text"],input[type="number"],input[type="date"],select,textarea{width:100%;background:var(--navy-3);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 13px;font-size:13px;font-family:'Outfit',sans-serif;color:var(--white);outline:none;transition:all 0.2s;}
+  input::placeholder,textarea::placeholder{color:var(--muted-2);}
+  input:focus,select:focus,textarea:focus{border-color:var(--gold-border);background:var(--navy-4);box-shadow:0 0 0 3px rgba(201,168,76,0.06);}
+  select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 7L11 1' stroke='%238892a4' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+  textarea{resize:vertical;min-height:72px;line-height:1.6;}
+  .hint{font-size:11px;color:var(--muted-2);margin-top:3px;}
+  .section-divider{height:1px;background:rgba(255,255,255,0.06);margin:20px 0;}
 
-  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s; color: var(--muted); font-size: 13px; font-weight: 400; text-decoration: none; position: relative; }
-  .nav-item:hover { background: rgba(255,255,255,0.04); color: var(--white-2); }
-  .nav-item.active { background: var(--gold-dim); color: var(--gold-light); font-weight: 500; }
-  .nav-item.active::before { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; background: var(--gold); border-radius: 0 3px 3px 0; }
-  .nav-badge { margin-left: auto; background: var(--gold-dim); color: var(--gold); font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 20px; border: 1px solid var(--gold-border); }
+  /* DYNAMIC TABLE */
+  .dynamic-table{width:100%;border-collapse:collapse;margin-top:8px;}
+  .dynamic-table th{text-align:left;padding:8px 10px;font-size:11px;color:var(--muted-2);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(255,255,255,0.08);}
+  .dynamic-table td{padding:6px 4px;}
+  .dynamic-table input{padding:7px 10px;font-size:12px;}
+  .btn-add-row{background:var(--gold-dim);border:1px solid var(--gold-border);border-radius:6px;padding:6px 14px;font-size:12px;color:var(--gold);font-family:'Outfit',sans-serif;cursor:pointer;transition:all 0.2s;margin-top:10px;}
+  .btn-add-row:hover{background:rgba(201,168,76,0.2);}
+  .btn-remove-row{background:var(--red-dim);border:1px solid rgba(248,113,113,0.2);border-radius:5px;padding:4px 8px;font-size:11px;color:var(--red);font-family:'Outfit',sans-serif;cursor:pointer;}
 
-  .sidebar-footer { padding: 16px 12px; border-top: 1px solid rgba(255,255,255,0.05); }
-  .user-pill { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; }
-  .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--gold-dim); border: 1px solid var(--gold-border); display: flex; align-items: center; justify-content: center; font-family: 'Cormorant Garamond', serif; font-size: 14px; font-weight: 700; color: var(--gold); flex-shrink: 0; }
-  .user-name { font-size: 13px; font-weight: 500; color: var(--white-2); }
-  .user-plan { font-size: 11px; color: var(--muted-2); }
+  /* BUTTONS */
+  .btn-row{display:flex;justify-content:space-between;align-items:center;margin-top:20px;}
+  .btn-primary{background:var(--gold);color:var(--navy);border:none;border-radius:9px;padding:11px 24px;font-size:14px;font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:8px;}
+  .btn-primary:hover:not(:disabled){background:var(--gold-light);transform:translateY(-1px);}
+  .btn-primary:disabled{opacity:0.5;cursor:not-allowed;}
+  .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.1);border-radius:9px;padding:11px 18px;font-size:14px;font-weight:500;color:var(--muted);font-family:'Outfit',sans-serif;cursor:pointer;transition:all 0.2s;}
+  .btn-ghost:hover{border-color:rgba(255,255,255,0.2);color:var(--white-2);}
+  .spinner{width:16px;height:16px;border:2px solid rgba(10,15,30,0.3);border-top-color:var(--navy);border-radius:50%;animation:spin 0.7s linear infinite;display:none;}
+  @keyframes spin{to{transform:rotate(360deg)}}
 
-  /* ── MAIN ── */
-  .main { margin-left: 240px; flex: 1; position: relative; z-index: 1; }
+  /* ERROR */
+  .error-box{background:var(--red-dim);border:1px solid rgba(248,113,113,0.2);border-radius:10px;padding:12px 16px;font-size:13px;color:var(--red);display:none;margin-bottom:16px;}
+  .error-box.show{display:block;}
 
-  .topbar { position: sticky; top: 0; background: rgba(10,15,30,0.9); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255,255,255,0.05); padding: 16px 40px; display: flex; align-items: center; justify-content: space-between; z-index: 40; }
-  .topbar h1 { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 700; color: var(--white); letter-spacing: -0.3px; }
-  .topbar p { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  /* GENERATING */
+  .generating-state{text-align:center;padding:48px 24px;}
+  .gen-icon{font-size:48px;margin-bottom:20px;animation:float 2s ease-in-out infinite;}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  .gen-title{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:700;color:var(--white);margin-bottom:8px;}
+  .gen-sub{font-size:14px;color:var(--muted);margin-bottom:28px;}
+  .gen-progress{width:100%;height:3px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;}
+  .gen-bar{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-light));border-radius:3px;animation:progress 4s ease forwards;width:0;}
+  @keyframes progress{to{width:95%}}
+  .gen-steps{display:flex;flex-direction:column;gap:10px;margin-top:24px;text-align:left;}
+  .gen-step{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);}
+  .gen-step.done{color:var(--green);}
 
-  .back-btn { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); background: none; border: none; font-family: 'Outfit', sans-serif; cursor: pointer; transition: color 0.2s; text-decoration: none; }
-  .back-btn:hover { color: var(--white-2); }
+  /* RESULT */
+  .result-badge{display:inline-flex;align-items:center;gap:8px;background:var(--green-dim);border:1px solid var(--green-border);border-radius:20px;padding:5px 14px;font-size:12px;color:var(--green);font-weight:600;margin-bottom:10px;}
+  .result-badge-dot{width:6px;height:6px;border-radius:50%;background:var(--green);}
+  .result-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:var(--white);}
+  .result-meta{font-size:12px;color:var(--muted);margin-top:4px;}
+  .result-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;margin-bottom:20px;}
+  .btn-download{background:var(--gold);color:var(--navy);border:none;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;transition:all 0.2s;}
+  .btn-download:hover{background:var(--gold-light);}
+  .btn-copy{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 18px;font-size:13px;font-weight:500;color:var(--white-2);font-family:'Outfit',sans-serif;cursor:pointer;transition:all 0.2s;}
+  .btn-new{background:transparent;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 18px;font-size:13px;font-weight:500;color:var(--muted);font-family:'Outfit',sans-serif;cursor:pointer;}
+  .agreement-text{white-space:pre-wrap;font-size:13px;line-height:1.9;color:var(--white-2);font-family:'Outfit',sans-serif;max-height:600px;overflow-y:auto;padding-right:8px;}
+  .agreement-text::-webkit-scrollbar{width:4px;}
+  .agreement-text::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px;}
+  .disclaimer{margin-top:16px;padding:12px 16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;font-size:12px;color:var(--muted-2);line-height:1.6;}
 
-  /* ── CONTENT ── */
-  .content { padding: 32px 40px; max-width: 1000px; }
-
-  /* ── STEPPER ── */
-  .stepper { display: flex; align-items: center; gap: 0; margin-bottom: 36px; background: var(--navy-2); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 20px 28px; }
-
-  .step-item { display: flex; align-items: center; flex: 1; }
-  .step-item:last-child { flex: none; }
-
-  .step-circle {
-    width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    font-size: 13px; font-weight: 700; flex-shrink: 0; transition: all 0.3s;
-  }
-
-  .step-circle.done { background: var(--gold); color: var(--navy); }
-  .step-circle.active { background: var(--navy-3); border: 2px solid var(--gold); color: var(--gold); }
-  .step-circle.todo { background: var(--navy-3); border: 2px solid rgba(255,255,255,0.1); color: var(--muted-2); }
-
-  .step-label { font-size: 12px; font-weight: 500; margin-top: 6px; transition: color 0.3s; }
-  .step-label.active { color: var(--gold-light); }
-  .step-label.done { color: var(--muted); }
-  .step-label.todo { color: var(--muted-2); }
-
-  .step-inner { display: flex; flex-direction: column; align-items: center; gap: 0; }
-  .step-connector { flex: 1; height: 1px; background: rgba(255,255,255,0.08); margin: 0 8px; margin-bottom: 20px; transition: background 0.3s; }
-  .step-connector.done { background: var(--gold); }
-
-  /* ── FORM CARD ── */
-  .form-card { background: var(--navy-2); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 32px; margin-bottom: 20px; animation: fadeUp 0.4s ease forwards; opacity: 0; }
-  @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
-
-  .form-section-title { font-size: 16px; font-weight: 600; color: var(--white); margin-bottom: 6px; }
-  .form-section-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
-
-  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-  .form-grid.cols-1 { grid-template-columns: 1fr; }
-  .span-2 { grid-column: 1 / -1; }
-
-  .form-group { display: flex; flex-direction: column; gap: 7px; }
-
-  label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
-
-  input[type="text"], input[type="number"], input[type="date"], select, textarea {
-    width: 100%; background: var(--navy-3); border: 1px solid rgba(255,255,255,0.08); border-radius: 9px;
-    padding: 11px 14px; font-size: 14px; font-family: 'Outfit', sans-serif; font-weight: 400;
-    color: var(--white); outline: none; transition: all 0.2s;
-  }
-
-  input::placeholder, textarea::placeholder { color: var(--muted-2); }
-
-  input:focus, select:focus, textarea:focus {
-    border-color: var(--gold-border); background: var(--navy-4);
-    box-shadow: 0 0 0 3px rgba(201,168,76,0.06);
-  }
-
-  select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 7L11 1' stroke='%238892a4' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
-
-  textarea { resize: vertical; min-height: 88px; line-height: 1.6; }
-
-  .hint { font-size: 11px; color: var(--muted-2); margin-top: 4px; }
-
-  /* ── BUTTONS ── */
-  .btn-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
-
-  .btn-primary {
-    background: var(--gold); color: var(--navy); border: none; border-radius: 9px;
-    padding: 12px 28px; font-size: 14px; font-weight: 600; font-family: 'Outfit', sans-serif;
-    cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px;
-  }
-  .btn-primary:hover:not(:disabled) { background: var(--gold-light); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(201,168,76,0.2); }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-  .btn-ghost { background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 9px; padding: 12px 20px; font-size: 14px; font-weight: 500; color: var(--muted); font-family: 'Outfit', sans-serif; cursor: pointer; transition: all 0.2s; }
-  .btn-ghost:hover { border-color: rgba(255,255,255,0.2); color: var(--white-2); }
-
-  /* ── SPINNER ── */
-  .spinner { width: 16px; height: 16px; border: 2px solid rgba(10,15,30,0.3); border-top-color: var(--navy); border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* ── GENERATING STATE ── */
-  .generating-state { text-align: center; padding: 48px 24px; }
-  .gen-icon { font-size: 48px; margin-bottom: 20px; animation: float 2s ease-in-out infinite; }
-  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-  .gen-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 700; color: var(--white); margin-bottom: 8px; }
-  .gen-sub { font-size: 14px; color: var(--muted); margin-bottom: 28px; }
-  .gen-progress { width: 100%; height: 3px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
-  .gen-bar { height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-light)); border-radius: 3px; animation: progress 3s ease forwards; width: 0; }
-  @keyframes progress { to { width: 95%; } }
-  .gen-steps { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; text-align: left; }
-  .gen-step { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
-  .gen-step.done { color: var(--green); }
-  .gen-step-icon { font-size: 14px; }
-
-  /* ── RESULT STATE ── */
-  .result-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
-  .result-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--green-dim); border: 1px solid var(--green-border); border-radius: 20px; padding: 5px 14px; font-size: 12px; color: var(--green); font-weight: 600; margin-bottom: 10px; }
-  .result-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
-  .result-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 700; color: var(--white); }
-  .result-meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
-
-  .result-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-
-  .btn-download { background: var(--gold); color: var(--navy); border: none; border-radius: 8px; padding: 10px 20px; font-size: 13px; font-weight: 600; font-family: 'Outfit', sans-serif; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
-  .btn-download:hover { background: var(--gold-light); }
-
-  .btn-copy { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 18px; font-size: 13px; font-weight: 500; color: var(--white-2); font-family: 'Outfit', sans-serif; cursor: pointer; transition: all 0.2s; }
-  .btn-copy:hover { background: rgba(255,255,255,0.08); }
-
-  .btn-new { background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 18px; font-size: 13px; font-weight: 500; color: var(--muted); font-family: 'Outfit', sans-serif; cursor: pointer; transition: all 0.2s; }
-  .btn-new:hover { color: var(--white-2); border-color: rgba(255,255,255,0.2); }
-
-  .agreement-text { white-space: pre-wrap; font-size: 13px; line-height: 1.9; color: var(--white-2); font-family: 'Outfit', sans-serif; max-height: 500px; overflow-y: auto; padding-right: 8px; }
-  .agreement-text::-webkit-scrollbar { width: 4px; }
-  .agreement-text::-webkit-scrollbar-track { background: transparent; }
-  .agreement-text::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
-
-  .disclaimer { margin-top: 16px; padding: 12px 16px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; font-size: 12px; color: var(--muted-2); line-height: 1.6; }
-
-  /* ── ERROR ── */
-  .error-box { background: var(--red-dim); border: 1px solid rgba(248,113,113,0.2); border-radius: 10px; padding: 12px 16px; font-size: 13px; color: var(--red); display: none; margin-bottom: 16px; }
-  .error-box.show { display: block; }
-
-  @media (max-width: 768px) {
-    .sidebar { display: none; }
-    .main { margin-left: 0; }
-    .content { padding: 20px 16px; }
-    .topbar { padding: 14px 16px; }
-    .form-grid { grid-template-columns: 1fr; }
-    .span-2 { grid-column: auto; }
-    .stepper { padding: 16px; }
-  }
+  @media(max-width:768px){.sidebar{display:none;}.main{margin-left:0;}.content{padding:20px 16px;}.form-grid{grid-template-columns:1fr;}.form-grid.cols-3{grid-template-columns:1fr;}.span-2{grid-column:auto;}.topbar{padding:14px 16px;}}
 </style>
 </head>
 <body>
 
-<!-- SIDEBAR -->
 <aside class="sidebar">
   <div class="sidebar-logo">
     <a href="index.html" class="logo-text">Prop<span>Ledger</span></a>
@@ -232,269 +170,404 @@
   </nav>
   <div class="sidebar-footer">
     <div class="user-pill">
-      <div class="user-avatar">R</div>
+      <div class="user-avatar">D</div>
       <div>
-        <div class="user-name">Rajesh Kumar</div>
+        <div class="user-name">Damodar Kumar</div>
         <div class="user-plan">Free Plan</div>
       </div>
     </div>
   </div>
 </aside>
 
-<!-- MAIN -->
 <main class="main">
   <div class="topbar">
-    <div>
-      <a href="dashboard.html" class="back-btn">← Back to Dashboard</a>
-    </div>
+    <a href="dashboard.html" class="back-btn">← Dashboard</a>
     <div>
       <h1>AI Rental Agreement</h1>
-      <p>Powered by Claude · India compliant · PDF ready</p>
+      <p>Legally realistic · India compliant · Print & eSign ready</p>
     </div>
   </div>
 
   <div class="content">
-
     <!-- STEPPER -->
     <div class="stepper" id="stepper">
-      <div class="step-item">
-        <div class="step-inner">
-          <div class="step-circle active" id="s1">1</div>
-          <div class="step-label active" id="sl1">Property</div>
-        </div>
-      </div>
+      <div class="step-item"><div class="step-inner"><div class="step-circle active" id="s1">1</div><div class="step-label active" id="sl1">Landlord</div></div></div>
       <div class="step-connector" id="sc1"></div>
-      <div class="step-item">
-        <div class="step-inner">
-          <div class="step-circle todo" id="s2">2</div>
-          <div class="step-label todo" id="sl2">Tenant</div>
-        </div>
-      </div>
+      <div class="step-item"><div class="step-inner"><div class="step-circle todo" id="s2">2</div><div class="step-label todo" id="sl2">Tenant</div></div></div>
       <div class="step-connector" id="sc2"></div>
-      <div class="step-item">
-        <div class="step-inner">
-          <div class="step-circle todo" id="s3">3</div>
-          <div class="step-label todo" id="sl3">Terms</div>
-        </div>
-      </div>
+      <div class="step-item"><div class="step-inner"><div class="step-circle todo" id="s3">3</div><div class="step-label todo" id="sl3">Property</div></div></div>
       <div class="step-connector" id="sc3"></div>
-      <div class="step-item">
-        <div class="step-inner">
-          <div class="step-circle todo" id="s4">4</div>
-          <div class="step-label todo" id="sl4">Agreement</div>
-        </div>
-      </div>
+      <div class="step-item"><div class="step-inner"><div class="step-circle todo" id="s4">4</div><div class="step-label todo" id="sl4">Terms</div></div></div>
+      <div class="step-connector" id="sc4"></div>
+      <div class="step-item"><div class="step-inner"><div class="step-circle todo" id="s5">5</div><div class="step-label todo" id="sl5">Agreement</div></div></div>
     </div>
 
-    <!-- ERROR BOX -->
-    <div class="error-box" id="error-box">Something went wrong. Please try again.</div>
+    <div class="error-box" id="error-box"></div>
 
-    <!-- STEP 1: PROPERTY -->
-    <div class="form-card" id="step-1">
-      <div class="form-section-title">Property & Landlord Details</div>
-      <div class="form-section-sub">Tell us about you and the property being rented out.</div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Landlord Full Name *</label>
-          <input type="text" id="landlordName" placeholder="As per Aadhaar / PAN" />
+    <!-- STEP 1: LANDLORD -->
+    <div id="step-1">
+      <div class="form-card">
+        <div class="form-section-title">Landlord / Licensor Details</div>
+        <div class="form-section-sub">Party of the First Part — Property owner's information</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Agreement Type *</label>
+            <select id="agreementType">
+              <option value="Leave and License">Leave and License Agreement</option>
+              <option value="Rent Agreement">Rent Agreement</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Execution Place *</label>
+            <input type="text" id="executionPlace" placeholder="e.g. Gurgaon, Bangalore" />
+          </div>
+          <div class="form-group">
+            <label>Landlord Full Name *</label>
+            <input type="text" id="landlordName" placeholder="As per Aadhaar" />
+          </div>
+          <div class="form-group">
+            <label>Age</label>
+            <input type="number" id="landlordAge" placeholder="e.g. 45" />
+          </div>
+          <div class="form-group">
+            <label>Gender</label>
+            <select id="landlordGender"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select>
+          </div>
+          <div class="form-group">
+            <label>Father's Name</label>
+            <input type="text" id="landlordFatherName" placeholder="S/o ..." />
+          </div>
+          <div class="form-group">
+            <label>PAN Number</label>
+            <input type="text" id="landlordPAN" placeholder="ABCDE1234F" maxlength="10" style="text-transform:uppercase" />
+          </div>
+          <div class="form-group">
+            <label>Aadhaar Last 4 Digits</label>
+            <input type="text" id="landlordAadhaar" placeholder="XXXX" maxlength="4" />
+          </div>
+          <div class="form-group span-2">
+            <label>Landlord Permanent Address *</label>
+            <input type="text" id="landlordAddress" placeholder="House No., Sector, City, State, PIN" />
+          </div>
         </div>
-        <div class="form-group">
-          <label>Property Type *</label>
-          <select id="propertyType">
-            <option>Apartment / Flat</option>
-            <option>Independent House</option>
-            <option>Villa</option>
-            <option>Studio Apartment</option>
-            <option>PG Room</option>
-            <option>Commercial Space</option>
-          </select>
+        <div class="btn-row">
+          <div></div>
+          <button class="btn-primary" onclick="goTo(2)">Next: Tenant Details →</button>
         </div>
-        <div class="form-group span-2">
-          <label>Landlord Permanent Address *</label>
-          <input type="text" id="landlordAddress" placeholder="Full address including city, state and PIN" />
-        </div>
-        <div class="form-group span-2">
-          <label>Property Address (to be rented) *</label>
-          <input type="text" id="propertyAddress" placeholder="Full address of the rental property" />
-        </div>
-        <div class="form-group">
-          <label>City</label>
-          <input type="text" id="city" placeholder="e.g. Bangalore, Mumbai, Delhi" />
-        </div>
-        <div class="form-group">
-          <label>Furnished Status *</label>
-          <select id="furnished">
-            <option>Unfurnished</option>
-            <option>Semi-Furnished</option>
-            <option>Fully Furnished</option>
-          </select>
-        </div>
-      </div>
-      <div class="btn-row">
-        <div></div>
-        <button class="btn-primary" onclick="goToStep(2)">
-          Next: Tenant Details
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </button>
       </div>
     </div>
 
     <!-- STEP 2: TENANT -->
-    <div class="form-card" id="step-2" style="display:none;">
-      <div class="form-section-title">Tenant Details</div>
-      <div class="form-section-sub">Information about the person renting the property. Consent will be collected before any verification runs.</div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Tenant Full Name *</label>
-          <input type="text" id="tenantName" placeholder="As per Aadhaar" />
+    <div id="step-2" style="display:none">
+      <div class="form-card">
+        <div class="form-section-title">Tenant / Licensee Details</div>
+        <div class="form-section-sub">Party of the Second Part — Tenant's information</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Tenant Full Name *</label>
+            <input type="text" id="tenantName" placeholder="As per Aadhaar" />
+          </div>
+          <div class="form-group">
+            <label>Age</label>
+            <input type="number" id="tenantAge" placeholder="e.g. 30" />
+          </div>
+          <div class="form-group">
+            <label>Gender</label>
+            <select id="tenantGender"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select>
+          </div>
+          <div class="form-group">
+            <label>Father's / Spouse Name</label>
+            <input type="text" id="tenantFatherName" placeholder="S/o / D/o / W/o ..." />
+          </div>
+          <div class="form-group">
+            <label>PAN Number</label>
+            <input type="text" id="tenantPAN" placeholder="ABCDE1234F" maxlength="10" style="text-transform:uppercase" />
+          </div>
+          <div class="form-group">
+            <label>Aadhaar (last 4 digits)</label>
+            <input type="text" id="tenantAadhaar" placeholder="XXXX" maxlength="4" />
+          </div>
+          <div class="form-group">
+            <label>Phone Number *</label>
+            <input type="text" id="tenantPhone" placeholder="+91 98XXXXXXXX" />
+          </div>
+          <div class="form-group">
+            <label>Occupation</label>
+            <select id="tenantOccupation">
+              <option>Salaried Employee</option><option>Self-Employed</option>
+              <option>Business</option><option>Student</option><option>Retired</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Employer / Company</label>
+            <input type="text" id="tenantEmployer" placeholder="e.g. Accenture, TCS, Self" />
+          </div>
+          <div class="form-group span-2">
+            <label>Tenant Permanent Address *</label>
+            <textarea id="tenantAddress" placeholder="Permanent home address (not the rented property)"></textarea>
+          </div>
         </div>
-        <div class="form-group">
-          <label>Phone Number *</label>
-          <input type="text" id="tenantPhone" placeholder="+91 98XXXXXXXX" />
-        </div>
-        <div class="form-group">
-          <label>Aadhaar Last 4 Digits</label>
-          <input type="text" id="tenantAadhaar" placeholder="XXXX" maxlength="4" />
-          <div class="hint">Only last 4 digits stored — for agreement reference only.</div>
-        </div>
-        <div class="form-group">
-          <label>Number of Occupants</label>
-          <select id="occupants">
-            <option>1</option><option>2</option><option>3</option><option>4</option><option>5+</option>
-          </select>
-        </div>
-        <div class="form-group span-2">
-          <label>Tenant Permanent Address *</label>
-          <textarea id="tenantAddress" placeholder="Home town / permanent address (not the rented address)"></textarea>
-        </div>
-        <div class="form-group">
-          <label>Tenant Occupation</label>
-          <select id="occupation">
-            <option>Salaried Employee</option>
-            <option>Self-Employed / Business</option>
-            <option>Student</option>
-            <option>Retired</option>
-            <option>Other</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Emergency Contact Name</label>
-          <input type="text" id="emergencyContact" placeholder="Name of emergency contact" />
-        </div>
-      </div>
-      <div class="btn-row">
-        <button class="btn-ghost" onclick="goToStep(1)">← Back</button>
-        <button class="btn-primary" onclick="goToStep(3)">
-          Next: Agreement Terms
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </button>
-      </div>
-    </div>
 
-    <!-- STEP 3: TERMS -->
-    <div class="form-card" id="step-3" style="display:none;">
-      <div class="form-section-title">Agreement Terms & Conditions</div>
-      <div class="form-section-sub">Define the financial and legal terms of your rental agreement.</div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Monthly Rent (₹) *</label>
-          <input type="number" id="rent" placeholder="e.g. 25000" />
-        </div>
-        <div class="form-group">
-          <label>Security Deposit (₹) *</label>
-          <input type="number" id="deposit" placeholder="e.g. 75000" />
-          <div class="hint">Typically 2–3 months rent in India.</div>
-        </div>
-        <div class="form-group">
-          <label>Start Date *</label>
-          <input type="date" id="startDate" />
-        </div>
-        <div class="form-group">
-          <label>Agreement Duration *</label>
-          <select id="duration">
-            <option value="6">6 months</option>
-            <option value="11" selected>11 months (recommended)</option>
-            <option value="12">12 months</option>
-            <option value="24">24 months</option>
-          </select>
-          <div class="hint">11 months avoids mandatory registration in most states.</div>
-        </div>
-        <div class="form-group">
-          <label>Maintenance Charges (₹/month)</label>
-          <input type="number" id="maintenance" placeholder="e.g. 2000" />
-        </div>
-        <div class="form-group">
-          <label>Notice Period *</label>
-          <select id="notice">
-            <option value="1">1 month</option>
-            <option value="2">2 months</option>
-            <option value="3">3 months</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Annual Rent Increment (%)</label>
-          <select id="increment">
-            <option value="0">No increment</option>
-            <option value="5">5% per year</option>
-            <option value="10" selected>10% per year</option>
-            <option value="custom">Custom</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Electricity / Water Bills</label>
-          <select id="utilities">
-            <option>Tenant pays directly</option>
-            <option>Included in rent</option>
-            <option>Landlord pays, reimburse monthly</option>
-          </select>
-        </div>
-        <div class="form-group span-2">
-          <label>Special Clauses (optional)</label>
-          <textarea id="clauses" placeholder="e.g. No pets allowed, No smoking on premises, Two-wheeler parking included, Subletting not permitted..."></textarea>
-        </div>
-      </div>
-      <div class="btn-row">
-        <button class="btn-ghost" onclick="goToStep(2)">← Back</button>
-        <button class="btn-primary" id="generate-btn" onclick="generateAgreement()">
-          <span id="gen-btn-text">✨ Generate Agreement with AI</span>
-          <div class="spinner" id="gen-spinner"></div>
-        </button>
-      </div>
-    </div>
+        <div class="section-divider"></div>
+        <div class="form-section-title" style="font-size:14px;">Family Members Residing at Premises</div>
+        <div class="form-section-sub">List all members who will live at the property (optional)</div>
+        <table class="dynamic-table" id="family-table">
+          <thead><tr><th>Name</th><th>Age</th><th>Aadhaar Last 4</th><th>Gender</th><th>Relation</th><th>Occupation</th><th></th></tr></thead>
+          <tbody id="family-body"></tbody>
+        </table>
+        <button class="btn-add-row" onclick="addFamilyRow()">+ Add Family Member</button>
 
-    <!-- STEP 4: GENERATING -->
-    <div class="form-card" id="step-gen" style="display:none;">
-      <div class="generating-state">
-        <div class="gen-icon">🤖</div>
-        <div class="gen-title">Claude is drafting your agreement</div>
-        <div class="gen-sub">Analysing details, applying Indian rental law, formatting clauses...</div>
-        <div class="gen-progress"><div class="gen-bar" id="gen-bar"></div></div>
-        <div class="gen-steps">
-          <div class="gen-step done" id="gs1"><span class="gen-step-icon">✓</span> Validating property and tenant details</div>
-          <div class="gen-step" id="gs2"><span class="gen-step-icon">⏳</span> Applying Transfer of Property Act, 1882</div>
-          <div class="gen-step" id="gs3"><span class="gen-step-icon">⏳</span> Structuring clauses and obligations</div>
-          <div class="gen-step" id="gs4"><span class="gen-step-icon">⏳</span> Formatting PDF-ready agreement</div>
+        <div class="btn-row">
+          <button class="btn-ghost" onclick="goTo(1)">← Back</button>
+          <button class="btn-primary" onclick="goTo(3)">Next: Property Details →</button>
         </div>
       </div>
     </div>
 
-    <!-- STEP 4: RESULT -->
-    <div class="form-card" id="step-result" style="display:none;">
-      <div class="result-header">
-        <div>
-          <div class="result-badge"><div class="result-badge-dot"></div> Agreement Generated Successfully</div>
-          <div class="result-title" id="result-title">Rental Agreement</div>
-          <div class="result-meta" id="result-meta"></div>
+    <!-- STEP 3: PROPERTY -->
+    <div id="step-3" style="display:none">
+      <div class="form-card">
+        <div class="form-section-title">Property Details</div>
+        <div class="form-section-sub">Details of the premises being rented out</div>
+        <div class="form-grid">
+          <div class="form-group span-2">
+            <label>Full Property Address *</label>
+            <input type="text" id="propertyAddress" placeholder="House/Flat No., Floor, Tower, Society, Sector, City, State, PIN" />
+          </div>
+          <div class="form-group">
+            <label>City *</label>
+            <input type="text" id="city" placeholder="e.g. Gurgaon" />
+          </div>
+          <div class="form-group">
+            <label>State</label>
+            <input type="text" id="state" placeholder="e.g. Haryana" />
+          </div>
+          <div class="form-group">
+            <label>Property Type</label>
+            <select id="propertyType">
+              <option>Apartment/Flat</option><option>Independent House</option>
+              <option>Villa</option><option>Builder Floor</option><option>Studio</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Furnished Status</label>
+            <select id="furnished">
+              <option>Fully Furnished</option><option>Semi-Furnished</option><option>Unfurnished</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Bedrooms</label>
+            <input type="text" id="bedrooms" placeholder="e.g. 2 BHK / 4.5" />
+          </div>
+          <div class="form-group">
+            <label>Bathrooms</label>
+            <input type="text" id="bathrooms" placeholder="e.g. 2" />
+          </div>
         </div>
+
+        <div class="section-divider"></div>
+        <div class="form-section-title" style="font-size:14px;">Furniture & Appliances (Schedule I)</div>
+        <div class="form-section-sub">List items provided with the property</div>
+        <table class="dynamic-table" id="furniture-table">
+          <thead><tr><th>Item Name</th><th>Quantity</th><th>Remarks</th><th></th></tr></thead>
+          <tbody id="furniture-body"></tbody>
+        </table>
+        <button class="btn-add-row" onclick="addFurnitureRow()">+ Add Item</button>
+
+        <div class="btn-row">
+          <button class="btn-ghost" onclick="goTo(2)">← Back</button>
+          <button class="btn-primary" onclick="goTo(4)">Next: Financial Terms →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 4: TERMS -->
+    <div id="step-4" style="display:none">
+      <div class="form-card">
+        <div class="form-section-title">Financial & Legal Terms</div>
+        <div class="form-section-sub">Define rent, deposit, duration and payment details</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Monthly Rent (₹) *</label>
+            <input type="number" id="rent" placeholder="e.g. 25000" />
+          </div>
+          <div class="form-group">
+            <label>Rent in Words</label>
+            <input type="text" id="rentInWords" placeholder="Auto-filled or type manually" />
+          </div>
+          <div class="form-group">
+            <label>Security Deposit (₹) *</label>
+            <input type="number" id="deposit" placeholder="e.g. 50000" />
+          </div>
+          <div class="form-group">
+            <label>Deposit in Words</label>
+            <input type="text" id="depositInWords" placeholder="Auto-filled or type manually" />
+          </div>
+          <div class="form-group">
+            <label>Agreement Start Date *</label>
+            <input type="date" id="startDate" />
+          </div>
+          <div class="form-group">
+            <label>End Date (optional)</label>
+            <input type="date" id="endDate" />
+            <div class="hint">Leave blank to auto-calculate from duration</div>
+          </div>
+          <div class="form-group">
+            <label>Duration (months)</label>
+            <select id="duration">
+              <option value="6">6 months</option>
+              <option value="11" selected>11 months (recommended)</option>
+              <option value="12">12 months</option>
+              <option value="24">24 months</option>
+            </select>
+            <div class="hint">11 months avoids mandatory registration</div>
+          </div>
+          <div class="form-group">
+            <label>Lock-in Period (months)</label>
+            <select id="lockInPeriod">
+              <option value="0">No lock-in</option>
+              <option value="1" selected>1 month</option>
+              <option value="2">2 months</option>
+              <option value="3">3 months</option>
+              <option value="6">6 months</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Notice Period (months)</label>
+            <select id="noticePeriod">
+              <option value="1" selected>1 month</option>
+              <option value="2">2 months</option>
+              <option value="3">3 months</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Annual Rent Increment (%)</label>
+            <input type="number" id="incrementPercent" placeholder="e.g. 5" value="5" />
+          </div>
+          <div class="form-group">
+            <label>Rent Due Date</label>
+            <select id="rentDueDate">
+              <option value="1st">1st of each month</option>
+              <option value="5th">5th of each month</option>
+              <option value="10th">10th of each month</option>
+              <option value="29th">29th of each month</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Grace Period (days)</label>
+            <input type="number" id="gracePeriod" placeholder="3" value="3" />
+          </div>
+          <div class="form-group">
+            <label>Late Payment Fee (₹)</label>
+            <input type="number" id="lateFee" placeholder="1000" value="1000" />
+          </div>
+          <div class="form-group">
+            <label>Maintenance Charges</label>
+            <select id="maintenanceIncluded">
+              <option value="no">Not included in rent</option>
+              <option value="yes">Included in rent</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Electricity Board</label>
+            <input type="text" id="electricityBoard" placeholder="e.g. DHBVN, BESCOM, TATA Power" />
+          </div>
+        </div>
+
+        <div class="section-divider"></div>
+        <div class="form-section-title" style="font-size:14px;">Payment Details</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Payment Mode</label>
+            <select id="paymentMode">
+              <option>Cheque/NEFT/UPI</option>
+              <option>UPI</option>
+              <option>NEFT/RTGS</option>
+              <option>Cheque</option>
+              <option>Cash</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Bank Name</label>
+            <input type="text" id="bankName" placeholder="e.g. ICICI Bank, SBI" />
+          </div>
+          <div class="form-group">
+            <label>Account Number</label>
+            <input type="text" id="accountNumber" placeholder="Landlord's bank account" />
+          </div>
+          <div class="form-group">
+            <label>IFSC Code</label>
+            <input type="text" id="ifscCode" placeholder="e.g. ICIC0001234" />
+          </div>
+        </div>
+
+        <div class="section-divider"></div>
+        <div class="form-section-title" style="font-size:14px;">Witnesses</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Witness 1 Name</label>
+            <input type="text" id="witness1Name" placeholder="Full name" />
+          </div>
+          <div class="form-group">
+            <label>Witness 1 Address</label>
+            <input type="text" id="witness1Address" placeholder="Address" />
+          </div>
+          <div class="form-group">
+            <label>Witness 2 Name</label>
+            <input type="text" id="witness2Name" placeholder="Full name" />
+          </div>
+          <div class="form-group">
+            <label>Witness 2 Address</label>
+            <input type="text" id="witness2Address" placeholder="Address" />
+          </div>
+          <div class="form-group span-2">
+            <label>Special Clauses (optional)</label>
+            <textarea id="specialClauses" placeholder="Any additional specific terms agreed between both parties..."></textarea>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn-ghost" onclick="goTo(3)">← Back</button>
+          <button class="btn-primary" id="generate-btn" onclick="generateAgreement()">
+            <span id="gen-btn-text">✨ Generate Agreement with AI</span>
+            <div class="spinner" id="gen-spinner"></div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 5: GENERATING -->
+    <div id="step-gen" style="display:none">
+      <div class="form-card">
+        <div class="generating-state">
+          <div class="gen-icon">⚖️</div>
+          <div class="gen-title">Drafting your legal agreement</div>
+          <div class="gen-sub">Claude is applying Indian property law to your details...</div>
+          <div class="gen-progress"><div class="gen-bar"></div></div>
+          <div class="gen-steps">
+            <div class="gen-step done"><span>✓</span> Verifying landlord and tenant details</div>
+            <div class="gen-step" id="gs2"><span>⏳</span> Applying Transfer of Property Act, 1882</div>
+            <div class="gen-step" id="gs3"><span>⏳</span> Structuring all 23+ clauses</div>
+            <div class="gen-step" id="gs4"><span>⏳</span> Adding furniture schedule and family details</div>
+            <div class="gen-step" id="gs5"><span>⏳</span> Finalising signature block and witnesses</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 5: RESULT -->
+    <div id="step-result" style="display:none">
+      <div class="form-card">
+        <div class="result-badge"><div class="result-badge-dot"></div> Agreement Generated Successfully</div>
+        <div class="result-title" id="result-title">Rental Agreement</div>
+        <div class="result-meta" id="result-meta"></div>
         <div class="result-actions">
-          <button class="btn-download" onclick="copyAgreement()">📋 Copy Text</button>
-          <button class="btn-copy" onclick="printAgreement()">🖨️ Print / Save PDF</button>
+          <button class="btn-download" onclick="printAgreement()">🖨️ Print / Save as PDF</button>
+          <button class="btn-copy" onclick="copyAgreement()">📋 Copy Text</button>
           <button class="btn-new" onclick="resetForm()">+ New Agreement</button>
         </div>
-      </div>
-      <div class="agreement-text" id="agreement-output"></div>
-      <div class="disclaimer">
-        ⚠️ This agreement is AI-generated for reference and documentation purposes. For properties requiring mandatory registration under the Registration Act, 1908, please have the agreement reviewed by a qualified advocate and stamped as per your state's Stamp Duty Act before registration.
+        <div class="agreement-text" id="agreement-output"></div>
+        <div class="disclaimer">⚠️ This AI-generated agreement is based on standard Indian property law. For formal registration under the Registration Act, 1908, have it reviewed by a qualified advocate and printed on stamp paper of appropriate value as per your state's Stamp Duty Act. PropLedger is not a law firm and this does not constitute legal advice.</div>
       </div>
     </div>
 
@@ -505,43 +578,39 @@
   let currentStep = 1;
   let generatedAgreement = '';
 
-  function goToStep(n) {
-    // Validation
-    if (n > 1 && currentStep === 1) {
-      if (!v('landlordName') || !v('propertyAddress') || !v('landlordAddress')) {
-        showError('Please fill in Landlord Name, Landlord Address and Property Address before continuing.');
-        return;
-      }
-    }
-    if (n > 2 && currentStep === 2) {
-      if (!v('tenantName') || !v('tenantPhone') || !v('tenantAddress')) {
-        showError('Please fill in Tenant Name, Phone and Permanent Address before continuing.');
-        return;
-      }
+  // ── STEPPER ──
+  function goTo(n) {
+    if (n > currentStep) {
+      if (!validate(currentStep)) return;
     }
     hideError();
-
-    // Hide all steps
-    ['step-1','step-2','step-3','step-gen','step-result'].forEach(id => {
+    ['step-1','step-2','step-3','step-4','step-gen','step-result'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     });
-
-    // Show target step
     const target = document.getElementById(`step-${n}`);
-    if (target) { target.style.display = 'block'; target.style.animation = 'none'; target.offsetHeight; target.style.animation = ''; }
-
+    if (target) { target.style.display = 'block'; target.style.animation='none'; target.offsetHeight; target.style.animation=''; }
     currentStep = n;
     updateStepper(n);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Auto-fill words when moving to step 4
+    if (n === 4) {
+      const rentEl = document.getElementById('rent');
+      const rentWordsEl = document.getElementById('rentInWords');
+      const depEl = document.getElementById('deposit');
+      const depWordsEl = document.getElementById('depositInWords');
+      rentEl.addEventListener('blur', () => { if (!rentWordsEl.value && rentEl.value) rentWordsEl.value = numberToWords(parseInt(rentEl.value)); });
+      depEl.addEventListener('blur', () => { if (!depWordsEl.value && depEl.value) depWordsEl.value = numberToWords(parseInt(depEl.value)); });
+    }
   }
 
   function updateStepper(active) {
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= 5; i++) {
       const circle = document.getElementById(`s${i}`);
       const label = document.getElementById(`sl${i}`);
       const connector = document.getElementById(`sc${i}`);
-
+      if (!circle) continue;
       if (i < active) {
         circle.className = 'step-circle done'; circle.textContent = '✓';
         label.className = 'step-label done';
@@ -557,131 +626,201 @@
     }
   }
 
+  function validate(step) {
+    if (step === 1) {
+      if (!g('landlordName') || !g('landlordAddress') || !g('executionPlace')) {
+        showError('Please fill in Landlord Name, Address and Execution Place.'); return false;
+      }
+    }
+    if (step === 2) {
+      if (!g('tenantName') || !g('tenantPhone') || !g('tenantAddress')) {
+        showError('Please fill in Tenant Name, Phone and Permanent Address.'); return false;
+      }
+    }
+    if (step === 3) {
+      if (!g('propertyAddress') || !g('city')) {
+        showError('Please fill in Property Address and City.'); return false;
+      }
+    }
+    return true;
+  }
+
+  // ── DYNAMIC TABLES ──
+  function addFamilyRow() {
+    const tbody = document.getElementById('family-body');
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td><input type="text" placeholder="Full Name" /></td>
+      <td><input type="number" placeholder="Age" style="width:60px" /></td>
+      <td><input type="text" placeholder="XXXX" maxlength="4" style="width:70px" /></td>
+      <td><select><option>Male</option><option>Female</option><option>Other</option></select></td>
+      <td><input type="text" placeholder="Self/Spouse/Child" /></td>
+      <td><input type="text" placeholder="Occupation" /></td>
+      <td><button class="btn-remove-row" onclick="this.closest('tr').remove()">✕</button></td>`;
+    tbody.appendChild(row);
+  }
+
+  function addFurnitureRow() {
+    const tbody = document.getElementById('furniture-body');
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td><input type="text" placeholder="e.g. Panasonic AC" /></td>
+      <td><input type="text" placeholder="1" style="width:60px" /></td>
+      <td><input type="text" placeholder="Good condition" /></td>
+      <td><button class="btn-remove-row" onclick="this.closest('tr').remove()">✕</button></td>`;
+    tbody.appendChild(row);
+  }
+
+  function getFamilyMembers() {
+    const rows = document.querySelectorAll('#family-body tr');
+    return Array.from(rows).map(row => {
+      const inputs = row.querySelectorAll('input, select');
+      return { name: inputs[0].value, age: inputs[1].value, aadhaar: inputs[2].value, gender: inputs[3].value, relation: inputs[4].value, occupation: inputs[5].value };
+    }).filter(m => m.name);
+  }
+
+  function getFurnitureItems() {
+    const rows = document.querySelectorAll('#furniture-body tr');
+    return Array.from(rows).map(row => {
+      const inputs = row.querySelectorAll('input');
+      return { name: inputs[0].value, qty: inputs[1].value, remarks: inputs[2].value };
+    }).filter(f => f.name);
+  }
+
+  // ── GENERATE ──
   async function generateAgreement() {
-    if (!v('rent') || !v('startDate') || !v('deposit')) {
-      showError('Please fill in Monthly Rent, Security Deposit and Start Date.');
-      return;
+    if (!g('rent') || !g('deposit') || !g('startDate')) {
+      showError('Please fill in Monthly Rent, Security Deposit and Start Date.'); return;
     }
     hideError();
 
-    // Show generating state
-    ['step-1','step-2','step-3','step-result'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'none';
-    });
-    document.getElementById('step-gen').style.display = 'block';
-    updateStepper(4);
+    // Auto-fill rent in words if empty
+    if (!g('rentInWords') && g('rent')) document.getElementById('rentInWords').value = numberToWords(parseInt(g('rent')));
+    if (!g('depositInWords') && g('deposit')) document.getElementById('depositInWords').value = numberToWords(parseInt(g('deposit')));
 
-    // Animate gen steps
+    ['step-4'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+    document.getElementById('step-gen').style.display = 'block';
+    updateStepper(5);
     animateGenSteps();
 
-    const prompt = buildPrompt();
+    const payload = {
+      agreementType: g('agreementType'),
+      executionPlace: g('executionPlace'),
+      landlordName: g('landlordName'), landlordAge: g('landlordAge'),
+      landlordGender: g('landlordGender'), landlordFatherName: g('landlordFatherName'),
+      landlordPAN: g('landlordPAN'), landlordAadhaar: g('landlordAadhaar'),
+      landlordAddress: g('landlordAddress'),
+      tenantName: g('tenantName'), tenantAge: g('tenantAge'),
+      tenantGender: g('tenantGender'), tenantFatherName: g('tenantFatherName'),
+      tenantPAN: g('tenantPAN'), tenantAadhaar: g('tenantAadhaar'),
+      tenantPhone: g('tenantPhone'), tenantAddress: g('tenantAddress'),
+      tenantOccupation: g('tenantOccupation'), tenantEmployer: g('tenantEmployer'),
+      familyMembers: getFamilyMembers(),
+      propertyAddress: g('propertyAddress'), city: g('city'), state: g('state'),
+      propertyType: g('propertyType'), furnished: g('furnished'),
+      bedrooms: g('bedrooms'), bathrooms: g('bathrooms'),
+      furnitureItems: getFurnitureItems(),
+      rent: g('rent'), rentInWords: g('rentInWords'),
+      deposit: g('deposit'), depositInWords: g('depositInWords'),
+      maintenanceIncluded: g('maintenanceIncluded'),
+      rentDueDate: g('rentDueDate'), gracePeriod: g('gracePeriod'), lateFee: g('lateFee'),
+      paymentMode: g('paymentMode'), bankName: g('bankName'),
+      accountNumber: g('accountNumber'), ifscCode: g('ifscCode'),
+      startDate: g('startDate'), endDate: g('endDate'),
+      duration: g('duration'), noticePeriod: g('noticePeriod'),
+      lockInPeriod: g('lockInPeriod'), incrementPercent: g('incrementPercent'),
+      electricityBoard: g('electricityBoard'),
+      witness1Name: g('witness1Name'), witness1Address: g('witness1Address'),
+      witness2Name: g('witness2Name'), witness2Address: g('witness2Address'),
+      specialClauses: g('specialClauses'),
+    };
 
     try {
       const response = await fetch('/api/generate-agreement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          landlordName: g('landlordName'),
-          landlordAddress: g('landlordAddress'),
-          propertyAddress: g('propertyAddress'),
-          propertyType: g('propertyType'),
-          furnished: g('furnished'),
-          city: g('city'),
-          tenantName: g('tenantName'),
-          tenantPhone: g('tenantPhone'),
-          tenantAadhaar: g('tenantAadhaar'),
-          tenantAddress: g('tenantAddress'),
-          occupation: g('occupation'),
-          occupants: g('occupants'),
-          rent: g('rent'),
-          deposit: g('deposit'),
-          startDate: g('startDate'),
-          duration: g('duration'),
-          maintenance: g('maintenance'),
-          noticePeriod: g('notice'),
-          increment: g('increment'),
-          utilities: g('utilities'),
-          specialClauses: g('clauses'),
-        })
+        body: JSON.stringify(payload)
       });
-
       const data = await response.json();
-      if (!response.ok || !data.success) throw new Error(data.error || 'Generation failed');
+      if (!response.ok || !data.success) throw new Error(data.error || 'Failed');
       generatedAgreement = data.agreement || '';
 
-      // Show result
       document.getElementById('step-gen').style.display = 'none';
       document.getElementById('step-result').style.display = 'block';
       document.getElementById('agreement-output').textContent = generatedAgreement;
-      document.getElementById('result-title').textContent = `Rental Agreement — ${g('tenantName')}`;
-      document.getElementById('result-meta').textContent = `${g('propertyAddress')} · ₹${g('rent')}/month · ${g('duration')} months · Generated ${new Date().toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'})}`;
+      document.getElementById('result-title').textContent = `${g('agreementType')} — ${g('tenantName')}`;
+      document.getElementById('result-meta').textContent = `${g('propertyAddress')} · ₹${parseInt(g('rent')).toLocaleString('en-IN')}/month · ${g('duration')} months · Generated ${new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}`;
 
     } catch (e) {
       document.getElementById('step-gen').style.display = 'none';
-      document.getElementById('step-3').style.display = 'block';
+      document.getElementById('step-4').style.display = 'block';
       showError('Failed to generate agreement. Please check your connection and try again.');
-      updateStepper(3);
-      currentStep = 3;
+      updateStepper(4); currentStep = 4;
     }
   }
 
-  function buildPrompt() {
-    return `Generate a complete, professional Indian residential rental agreement with these details:
-
-LANDLORD: ${g('landlordName')}, Address: ${g('landlordAddress')}
-TENANT: ${g('tenantName')}, Phone: ${g('tenantPhone')}, Aadhaar last 4: XXXX-XXXX-XXXX-${g('tenantAadhaar') || 'XXXX'}, Occupation: ${g('occupation')}, Permanent Address: ${g('tenantAddress')}, No. of occupants: ${g('occupants')}
-PROPERTY: ${g('propertyAddress')}, ${g('city')} (${g('propertyType')}, ${g('furnished')})
-FINANCIAL: Monthly Rent ₹${g('rent')} | Security Deposit ₹${g('deposit')} | Maintenance ₹${g('maintenance') || '0'}/month | Annual increment: ${g('increment')}% | Utilities: ${g('utilities')}
-DURATION: ${g('duration')} months from ${g('startDate')} | Notice Period: ${g('notice')} month(s)
-SPECIAL CLAUSES: ${g('clauses') || 'None'}
-
-Write a legally complete rental agreement under Indian law (Transfer of Property Act 1882, Registration Act 1908). Include numbered sections: 1) Parties & Definitions 2) Property Description 3) Term & Commencement 4) Rent & Payment 5) Security Deposit 6) Maintenance & Utilities 7) Tenant Obligations (minimum 8 specific clauses) 8) Landlord Obligations (minimum 5 clauses) 9) Prohibited Activities 10) Termination & Notice 11) Dispute Resolution (arbitration under Arbitration & Conciliation Act) 12) General Provisions 13) Signature Block with date/witness lines.
-
-Format with clear headings and numbered sub-clauses. Make it professional and legally robust.`;
-  }
-
   function animateGenSteps() {
-    const steps = ['gs2', 'gs3', 'gs4'];
-    steps.forEach((id, i) => {
+    ['gs2','gs3','gs4','gs5'].forEach((id, i) => {
       setTimeout(() => {
         const el = document.getElementById(id);
-        if (el) {
-          el.querySelector('.gen-step-icon').textContent = '✓';
-          el.classList.add('done');
-        }
-      }, (i + 1) * 900);
+        if (el) { el.querySelector('span').textContent = '✓'; el.classList.add('done'); }
+      }, (i+1)*800);
     });
   }
 
   function copyAgreement() {
     navigator.clipboard.writeText(generatedAgreement).then(() => {
-      const btn = document.querySelector('.btn-download');
+      const btn = document.querySelector('.btn-copy');
       btn.textContent = '✓ Copied!';
-      setTimeout(() => { btn.textContent = '📋 Copy Text'; }, 2000);
+      setTimeout(() => btn.textContent = '📋 Copy Text', 2000);
     });
   }
 
   function printAgreement() {
     const w = window.open('', '_blank');
-    w.document.write(`<html><head><title>Rental Agreement — PropLedger</title><style>body{font-family:Georgia,serif;max-width:800px;margin:40px auto;line-height:1.8;color:#111;font-size:14px;}h1{text-align:center;font-size:20px;margin-bottom:8px;}pre{white-space:pre-wrap;font-family:Georgia,serif;}</style></head><body><h1>RENTAL AGREEMENT</h1><p style="text-align:center;color:#666;margin-bottom:32px;">Generated via PropLedger · propledger.in</p><pre>${generatedAgreement}</pre></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><title>${g('agreementType')} — PropLedger</title>
+    <style>
+      body{font-family:Georgia,serif;max-width:800px;margin:40px auto;line-height:1.9;color:#111;font-size:14px;}
+      h2{text-align:center;font-size:18px;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px;}
+      .meta{text-align:center;color:#555;margin-bottom:32px;font-size:13px;}
+      pre{white-space:pre-wrap;font-family:Georgia,serif;font-size:14px;line-height:1.9;}
+      .footer{text-align:center;margin-top:40px;font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:16px;}
+      table{width:100%;border-collapse:collapse;margin:16px 0;}
+      th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px;}
+      th{background:#f5f5f5;font-weight:600;}
+      @media print{.footer{display:none;}}
+    </style></head><body>
+    <pre>${generatedAgreement}</pre>
+    <div class="footer">Generated via PropLedger · propledger.in · This is an AI-generated document. Review with a lawyer before registration.</div>
+    </body></html>`);
     w.document.close();
-    w.print();
+    setTimeout(() => w.print(), 500);
   }
 
   function resetForm() {
-    ['landlordName','landlordAddress','propertyAddress','city','tenantName','tenantPhone','tenantAadhaar','tenantAddress','emergencyContact','rent','deposit','startDate','maintenance','clauses'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = '';
-    });
+    document.querySelectorAll('input[type="text"],input[type="number"],input[type="date"],textarea').forEach(el => el.value = '');
+    document.getElementById('family-body').innerHTML = '';
+    document.getElementById('furniture-body').innerHTML = '';
     generatedAgreement = '';
-    goToStep(1);
+    goTo(1);
   }
 
-  function v(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
   function g(id) { const el = document.getElementById(id); return el ? el.value : ''; }
-  function showError(msg) { const e = document.getElementById('error-box'); e.textContent = msg; e.classList.add('show'); }
+  function showError(msg) { const e = document.getElementById('error-box'); e.textContent = msg; e.classList.add('show'); window.scrollTo({top:0,behavior:'smooth'}); }
   function hideError() { document.getElementById('error-box').classList.remove('show'); }
+
+  function numberToWords(num) {
+    if (!num || isNaN(num)) return '';
+    const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+    const tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+    function cvt(n) { let r=''; if(n>=100){r+=ones[Math.floor(n/100)]+' Hundred ';n%=100;} if(n>=20){r+=tens[Math.floor(n/10)]+' ';n%=10;} if(n>0)r+=ones[n]+' '; return r; }
+    let r='', n=num;
+    if(n>=10000000){r+=cvt(Math.floor(n/10000000))+'Crore ';n%=10000000;}
+    if(n>=100000){r+=cvt(Math.floor(n/100000))+'Lakh ';n%=100000;}
+    if(n>=1000){r+=cvt(Math.floor(n/1000))+'Thousand ';n%=1000;}
+    r+=cvt(n);
+    return r.trim()+' Only';
+  }
 </script>
 </body>
 </html>
