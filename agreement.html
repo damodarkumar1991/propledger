@@ -6,6 +6,7 @@
 <title>PropLedger — Generate Agreement</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --navy:#0a0f1e;--navy-2:#0f1628;--navy-3:#141d35;--navy-4:#1a2444;
@@ -583,6 +584,7 @@
         <div class="result-title" id="result-title">Rental Agreement</div>
         <div class="result-meta" id="result-meta"></div>
         <div class="result-actions">
+          <button class="btn-download" id="btn-esign" onclick="goToESign()" style="background:var(--green,#2dd4a0);color:#0a0f1e;display:none">✍️ Send for Aadhaar eSign</button>
           <button class="btn-download" onclick="printAgreement()">🖨️ Print / Save as PDF</button>
           <button class="btn-copy" onclick="copyAgreement()">📋 Copy Text</button>
           <button class="btn-new" onclick="resetForm()">+ New Agreement</button>
@@ -598,6 +600,13 @@
 <script>
   let currentStep = 1;
   let generatedAgreement = '';
+  let savedAgreementId = null;
+
+  function goToESign() {
+    if (savedAgreementId) {
+      window.location.href = `esign.html?id=${savedAgreementId}`;
+    }
+  }
 
   // ── STEPPER ──
   function goTo(n) {
@@ -771,6 +780,12 @@
       document.getElementById('step-gen').style.display = 'none';
       document.getElementById('step-result').style.display = 'block';
       document.getElementById('agreement-output').innerHTML = renderAgreement(generatedAgreement);
+
+      // Save to Supabase and capture ID for eSign
+      savedAgreementId = await saveAgreementToSupabase(generatedAgreement);
+      if (savedAgreementId) {
+        document.getElementById('btn-esign').style.display = 'inline-flex';
+      }
       document.getElementById('result-title').textContent = `${g('agreementType')} — ${g('tenantName')}`;
       document.getElementById('result-meta').textContent = `${g('propertyAddress')} · ₹${parseInt(g('rent')).toLocaleString('en-IN')}/month · ${g('duration')} months · Generated ${new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}`;
 
@@ -845,6 +860,31 @@
     </body></html>`);
     w.document.close();
     setTimeout(() => w.focus(), 300);
+  }
+
+  async function saveAgreementToSupabase(agreementText) {
+    try {
+      const SUPABASE_URL = 'https://plumsrlhachflnsmwpsh.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsdW1zcmxoYWNoZmxuc213cHNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MzQ3MjgsImV4cCI6MjA5MDAxMDcyOH0.ioqsc76WaRv6F4_S7puz6Th9-B83D0IcDh7HYPhwRlI';
+      const { createClient } = supabase;
+      const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) return null;
+
+      const { data, error } = await sb.from('agreements').insert({
+        user_id: session.user.id,
+        user_email: session.user.email,
+        tenant_name: g('tenantName') || 'Unknown',
+        property_address: g('propertyAddress') || 'Unknown',
+        monthly_rent: parseInt(g('rent')) || 0,
+        duration_months: parseInt(g('duration')) || 11,
+        start_date: g('startDate') || null,
+        status: 'active',
+        agreement_text: agreementText
+      }).select().single();
+
+      return error ? null : data?.id;
+    } catch(e) { return null; }
   }
 
   function resetForm() {
