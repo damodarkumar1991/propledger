@@ -82,18 +82,9 @@ ${formatTable(
 
     const message = await client.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      system: `You are a senior Indian property lawyer with 20 years of experience drafting Leave and License agreements. 
-Your task: Take the complete draft agreement below and output the FINAL version.
-STRICT RULES:
-1. Output ONLY the agreement text — NO explanations, NO disclaimers, NO preamble
-2. Preserve EVERY clause, sub-clause, schedule and table EXACTLY as given
-3. Keep ALL bold formatting markers (**text**) intact — these will be rendered as bold
-4. Keep ALL separator lines (━━━) intact
-5. Keep ALL party names, amounts, dates EXACTLY as given — do NOT change or correct them
-6. If a field shows N/A or blank, keep it as is
-7. The agreement must be print-ready`,
-      messages: [{ role: 'user', content: `Output the final version of this agreement:\n\n${prompt}` }],
+      max_tokens: 4000,
+      system: `You are a senior Indian property lawyer. Output the complete agreement EXACTLY as given below. Do NOT summarise, shorten or skip any clause. Output ONLY the agreement text — no explanations. Keep ALL **bold** markers and ━━━ separators intact.`,
+      messages: [{ role: 'user', content: prompt }],
     });
 
     const finalAgreement = message.content.filter(b => b.type === 'text').map(b => b.text).join('');
