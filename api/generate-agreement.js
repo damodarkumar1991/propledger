@@ -80,14 +80,31 @@ ${formatTable(
       furnitureSchedule, familySchedule, paymentSchedule,
     });
 
-    const message = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4000,
-      system: `You are a senior Indian property lawyer. Output the complete agreement EXACTLY as given below. Do NOT summarise, shorten or skip any clause. Output ONLY the agreement text — no explanations. Keep ALL **bold** markers and ━━━ separators intact.`,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    // Return the complete agreement template directly — no Claude call needed.
+    // The buildFullPrompt() already generates the full legally structured agreement.
+    // Using Claude to "reproduce" it was causing truncation at ~clause 11.
+    // Claude is still used for special custom clauses when d.specialClauses is provided.
+    let finalAgreement = prompt;
 
-    const finalAgreement = message.content.filter(b => b.type === 'text').map(b => b.text).join('');
+    // Only use Claude if user has added special custom clauses that need drafting
+    if (d.specialClauses && d.specialClauses.trim().length > 50) {
+      try {
+        const message = await client.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 800,
+          system: `You are an Indian property lawyer. Draft ONLY the special clause text requested. Output just the clause text, no preamble.`,
+          messages: [{ role: 'user', content: `Draft this special clause for a Leave & License agreement: ${d.specialClauses}` }],
+        });
+        const clauseText = message.content.filter(b => b.type === 'text').map(b => b.text).join('');
+        finalAgreement = prompt.replace(
+          `   ${d.specialClauses}`,
+          clauseText
+        );
+      } catch(e) {
+        console.log('Special clause drafting skipped:', e.message);
+      }
+    }
+
     return res.status(200).json({ success: true, agreement: finalAgreement });
 
   } catch (error) {
