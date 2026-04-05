@@ -298,7 +298,15 @@
   let userProfile = null;
 
   async function init() {
-    // Handle auth callback
+    // Handle magic link auth callback — tokens come in URL hash
+    // e.g. dashboard.html#access_token=xxx&type=magiclink
+    if (window.location.hash && window.location.hash.includes('access_token')) {
+      // Let Supabase process the hash automatically
+      await sb.auth.getSession();
+      // Clean the URL without reloading
+      history.replaceState(null, '', window.location.pathname);
+    }
+
     const { data: { session } } = await sb.auth.getSession();
 
     if (!session) {

@@ -340,7 +340,7 @@
     }
     currentEmail = email;
     // Send OTP (same signInWithOtp — Supabase sends both magic link + OTP)
-    sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+    sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo: 'https://www.propledger.in/dashboard.html' } });
     document.getElementById('otp-email-display').textContent = email;
     showState('state-otp');
     setTimeout(() => document.getElementById('otp-0').focus(), 100);
@@ -378,7 +378,7 @@
   }
 
   async function resendOTP() {
-    await sb.auth.signInWithOtp({ email: currentEmail, options: { shouldCreateUser: true } });
+    await sb.auth.signInWithOtp({ email: currentEmail, options: { shouldCreateUser: true, emailRedirectTo: 'https://www.propledger.in/dashboard.html' } });
     const btn = document.querySelector('[onclick="resendOTP()"]');
     btn.textContent = 'Sent ✓';
     setTimeout(() => btn.textContent = 'Resend OTP', 3000);
