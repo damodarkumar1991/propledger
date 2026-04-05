@@ -247,18 +247,24 @@
   const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 
   async function init(){
-    const {data:{session}}=await sb.auth.getSession();
-    if(!session){window.location.href='login.html';return;}
-    currentUser=session.user;
-    const n=currentUser.email.split('@')[0];
-    document.getElementById('user-avatar').textContent=n.charAt(0).toUpperCase();
-    document.getElementById('user-name').textContent=n;
-    document.getElementById('user-email').textContent=currentUser.email;
-    // Set today's date in pay modal
-    document.getElementById('pay-date').value=new Date().toISOString().split('T')[0];
-    await loadMonth();
-    document.getElementById('page-loading').style.display='none';
-    document.getElementById('page-content').style.display='block';
+    try {
+      const {data:{session}}=await sb.auth.getSession();
+      if(!session){window.location.href='login.html';return;}
+      currentUser=session.user;
+      const n=currentUser.email.split('@')[0];
+      document.getElementById('user-avatar').textContent=n.charAt(0).toUpperCase();
+      document.getElementById('user-name').textContent=n;
+      document.getElementById('user-email').textContent=currentUser.email;
+      document.getElementById('pay-date').value=new Date().toISOString().split('T')[0];
+      await loadMonth();
+    } catch(e) {
+      console.error('Init error:', e);
+      renderEmptyWithSample();
+      updateStats([]);
+    } finally {
+      document.getElementById('page-loading').style.display='none';
+      document.getElementById('page-content').style.display='block';
+    }
   }
 
   function changeMonth(dir){
@@ -275,43 +281,57 @@
   }
 
   async function loadMonth(){
-    document.getElementById('month-label').textContent=MONTHS[currentMonth]+' '+currentYear;
-    document.getElementById('table-title').textContent='Rent — '+MONTHS[currentMonth]+' '+currentYear;
+    try {
+      document.getElementById('month-label').textContent=MONTHS[currentMonth]+' '+currentYear;
+      document.getElementById('table-title').textContent='Rent — '+MONTHS[currentMonth]+' '+currentYear;
 
-    // Load active agreements
-    const {data:agreements}=await sb.from('agreements').select('*').eq('user_id',currentUser.id).eq('status','active');
-    const monthKey=`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`;
+      // Load active agreements — if table missing, returns empty array
+      const {data:agreements, error:agError}=await sb.from('agreements').select('*').eq('user_id',currentUser.id).eq('status','active');
+      if(agError) throw agError;
 
-    // Load rent payments for this month
-    const {data:payments}=await sb.from('rent_payments').select('*').eq('user_id',currentUser.id).eq('month_key',monthKey);
-    const paidMap={};
-    (payments||[]).forEach(p=>{paidMap[p.agreement_id]=p;});
+      const monthKey=`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`;
 
-    const today=new Date();
-    const todayDay=today.getDate();
-    const isCurrentMonth=(currentYear===today.getFullYear()&&currentMonth===today.getMonth());
+      // Load rent payments — table might not exist yet, handle gracefully
+      let payments=[];
+      try {
+        const {data:p}=await sb.from('rent_payments').select('*').eq('user_id',currentUser.id).eq('month_key',monthKey);
+        payments=p||[];
+      } catch(e) {
+        // rent_payments table not created yet — that's fine, show as pending
+        console.log('rent_payments table not ready yet:', e.message);
+      }
 
-    // Build entries from agreements
-    allEntries=(agreements||[]).map(a=>{
-      const payment=paidMap[a.id];
-      const dueDay=a.rent_due_date||1;
-      const dueDate=new Date(currentYear,currentMonth,dueDay);
-      let status='pending';
-      if(payment) status='paid';
-      else if(isCurrentMonth&&todayDay>dueDay+5) status='overdue';
-      else if(!isCurrentMonth&&new Date()<dueDate) status='pending';
-      return {id:a.id,tenant:a.tenant_name,property:a.property_address,rent:a.monthly_rent||0,dueDay,dueDate,status,payment};
-    });
+      const paidMap={};
+      payments.forEach(p=>{paidMap[p.agreement_id]=p;});
 
-    // If no agreements, show sample data
-    if(allEntries.length===0){
+      const today=new Date();
+      const todayDay=today.getDate();
+      const isCurrentMonth=(currentYear===today.getFullYear()&&currentMonth===today.getMonth());
+
+      allEntries=(agreements||[]).map(a=>{
+        const payment=paidMap[a.id];
+        const dueDay=a.rent_due_date||1;
+        const dueDate=new Date(currentYear,currentMonth,dueDay);
+        let status='pending';
+        if(payment) status='paid';
+        else if(isCurrentMonth&&todayDay>dueDay+5) status='overdue';
+        return {id:a.id,tenant:a.tenant_name,property:a.property_address,rent:a.monthly_rent||0,dueDay,dueDate,status,payment};
+      });
+
+      // If no agreements, show empty state
+      if(allEntries.length===0){
+        renderEmptyWithSample();
+        updateStats([]);
+        return;
+      }
+
+      updateStats(allEntries);
+      renderTable(allEntries);
+    } catch(e) {
+      console.error('loadMonth error:', e);
       renderEmptyWithSample();
       updateStats([]);
-      return;
     }
-
-    updateStats(allEntries);
-    renderTable(allEntries);
   }
 
   function updateStats(entries){
@@ -376,19 +396,26 @@
     if(!payingEntryId)return;
     const monthKey=`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`;
     const entry=allEntries.find(e=>e.id===payingEntryId);
-    await sb.from('rent_payments').upsert({
-      agreement_id:payingEntryId,
-      user_id:currentUser.id,
-      month_key:monthKey,
-      paid_date:document.getElementById('pay-date').value,
-      method:document.getElementById('pay-method').value,
-      reference:document.getElementById('pay-ref').value||null,
-      amount:entry?.rent||0
-    },{onConflict:'agreement_id,month_key'});
+    const paidDate=document.getElementById('pay-date').value;
+    const method=document.getElementById('pay-method').value;
+    try {
+      await sb.from('rent_payments').upsert({
+        agreement_id:payingEntryId,
+        user_id:currentUser.id,
+        month_key:monthKey,
+        paid_date:paidDate,
+        method:method,
+        reference:document.getElementById('pay-ref').value||null,
+        amount:entry?.rent||0
+      },{onConflict:'agreement_id,month_key'});
+    } catch(e) {
+      alert('Could not save payment. Please run the SQL to create the rent_payments table first.\n\nSee setup instructions.');
+      document.getElementById('pay-modal').classList.remove('show');
+      return;
+    }
     document.getElementById('pay-modal').classList.remove('show');
     await loadMonth();
-    // Auto print receipt
-    if(entry) printReceiptDirect(entry,document.getElementById('pay-date').value,document.getElementById('pay-method').value);
+    if(entry) printReceiptDirect(entry,paidDate,method);
   }
 
   function printReceiptDirect(entry,paidDate,method){
@@ -479,7 +506,6 @@
   function cap(s){return s?s.charAt(0).toUpperCase()+s.slice(1).replace(/_/g,' '):''}
   function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
   function fmtDate(d){return d?new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'—';}
-  const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
   init();
 </script>
 </body>
