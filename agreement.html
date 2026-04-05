@@ -548,6 +548,17 @@
           </div>
         </div>
 
+        <div style="background:rgba(45,212,160,0.05);border:1px solid rgba(45,212,160,0.15);border-radius:10px;padding:14px 16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:18px">🔍</span>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--white-2)">Have you screened this tenant?</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:1px">Verify Aadhaar + PAN before signing — takes 2 minutes</div>
+            </div>
+          </div>
+          <a href="tenant-screening.html" style="background:transparent;border:1px solid rgba(45,212,160,0.3);color:var(--green);border-radius:7px;padding:7px 14px;font-size:12px;font-weight:600;font-family:'Outfit',sans-serif;text-decoration:none;white-space:nowrap;transition:all 0.2s;" onmouseover="this.style.background='rgba(45,212,160,0.1)'" onmouseout="this.style.background='transparent'">Screen Tenant →</a>
+        </div>
+
         <div class="btn-row">
           <button class="btn-ghost" onclick="goTo(3)">← Back</button>
           <button class="btn-primary" id="generate-btn" onclick="generateAgreement()">
