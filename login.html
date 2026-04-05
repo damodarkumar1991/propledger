@@ -168,7 +168,7 @@
 
       <button class="btn-google" onclick="showOTPState()" style="margin-top:0;">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-        Sign in with 6-digit OTP
+        Sign in with 8-digit OTP
       </button>
 
       <div class="auth-toggle">
@@ -203,7 +203,7 @@
     <!-- STATE 3: OTP -->
     <div class="auth-state" id="state-otp">
       <h1 class="auth-title">Enter OTP</h1>
-      <p class="auth-sub">We sent a 6-digit code to <span id="otp-email-display" style="color:var(--white-2);font-weight:500"></span></p>
+      <p class="auth-sub">We sent a 8-digit code to <span id="otp-email-display" style="color:var(--white-2);font-weight:500"></span></p>
 
       <div class="alert alert-error" id="otp-error">
         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -219,6 +219,8 @@
           <input type="text" class="otp-input" maxlength="1" id="otp-3" inputmode="numeric" />
           <input type="text" class="otp-input" maxlength="1" id="otp-4" inputmode="numeric" />
           <input type="text" class="otp-input" maxlength="1" id="otp-5" inputmode="numeric" />
+          <input type="text" class="otp-input" maxlength="1" id="otp-6" inputmode="numeric" />
+          <input type="text" class="otp-input" maxlength="1" id="otp-7" inputmode="numeric" />
         </div>
       </div>
 
@@ -347,8 +349,8 @@
   }
 
   async function verifyOTP() {
-    const token = Array.from({length:6}, (_,i) => document.getElementById(`otp-${i}`).value).join('');
-    if (token.length < 6) {
+    const token = Array.from({length:8}, (_,i) => document.getElementById(`otp-${i}`).value).join('');
+    if (token.length < 8) {
       document.getElementById('otp-error').classList.add('show');
       return;
     }
@@ -468,11 +470,11 @@
         if (e.key === 'Backspace' && !e.target.value && i > 0) document.getElementById(`otp-${i-1}`).focus();
       });
       input.addEventListener('paste', e => {
-        const pasted = e.clipboardData.getData('text').replace(/\D/g,'').slice(0,6);
-        if (pasted.length === 6) {
+        const pasted = e.clipboardData.getData('text').replace(/\D/g,'').slice(0,8);
+        if (pasted.length === 8) {
           e.preventDefault();
           pasted.split('').forEach((ch,idx) => { const el = document.getElementById(`otp-${idx}`); if(el) el.value = ch; });
-          document.getElementById('otp-5').focus();
+          document.getElementById('otp-7').focus();
         }
       });
     }
