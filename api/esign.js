@@ -16,6 +16,11 @@ module.exports = async function handler(req, res) {
   const BASE = DIGIO_ENV === 'sandbox'
     ? 'https://ext.digio.in:444'
     : 'https://api.digio.in';
+  
+  // Also try without port if above fails - some environments block non-standard ports
+  const BASE_ALT = DIGIO_ENV === 'sandbox'
+    ? 'https://ext.digio.in'
+    : 'https://api.digio.in';
 
   const auth = (DIGIO_CLIENT_ID && DIGIO_CLIENT_SECRET)
     ? 'Basic ' + Buffer.from(`${DIGIO_CLIENT_ID}:${DIGIO_CLIENT_SECRET}`).toString('base64')
@@ -73,7 +78,7 @@ module.exports = async function handler(req, res) {
       });
 
       const digioPayload = {
-        file_name: `PropLedger_Agreement_${agreementId}.pdf`,
+        file_name: `PropLedger_Agreement_${agreementId || Date.now()}.pdf`,
         file_data: pdfBase64,
         file_type: 'application/pdf',
         signers: [
@@ -81,26 +86,27 @@ module.exports = async function handler(req, res) {
             identifier: landlordEmail,
             name: landlordName || 'Licensor',
             reason: 'Signing as Licensor (Landlord)',
-            sign_type: 'electronic'
+            sign_type: 'aadhaar'
           },
           {
             identifier: tenantEmail,
             name: tenantName || 'Licensee',
             reason: 'Signing as Licensee (Tenant)',
-            sign_type: 'electronic'
+            sign_type: 'aadhaar'
           }
         ],
         expire_in_days: 30,
         notify_signers: true,
         send_sign_link: true,
+        display_on_page: 'all',
         message: `Please sign the Leave & License Agreement for ${propertyAddress || 'the property'} on PropLedger.`
       };
 
-      console.log('Digio request URL:', `${BASE}/v2/client/document/uploadedits`);
+      console.log('Digio request URL:', `${BASE}/v2/client/document/upload`);
       console.log('Digio payload (without file_data):', JSON.stringify({...digioPayload, file_data: '[BASE64_PDF_' + pdfBase64.length + '_chars]'}));
 
       // Step 1: Upload document to Digio
-      const uploadRes = await fetch(`${BASE}/v2/client/document/uploadedits`, {
+      const uploadRes = await fetch(`${BASE}/v2/client/document/upload`, {
         method: 'POST',
         headers: {
           'Authorization': auth,
