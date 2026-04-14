@@ -101,46 +101,78 @@ module.exports = async function handler(req, res) {
       };
 
       console.log('Digio request URL:', `${BASE}/v2/client/document/upload`);
-      console.log('Payload meta:', JSON.stringify({...digioPayload, file: '[PDF_BUFFER]'}));
 
       // Digio requires multipart/form-data
-      // Use Node 18 native FormData + Blob (available in Vercel's runtime)
+      // Using Node's native https module — fetch+FormData unreliable in Vercel serverless
       const pdfBuffer = Buffer.from(pdfBase64, 'base64');
+      const boundary = `----DigioBoundary${Date.now()}`;
+      const CRLF = '\r\n';
 
-      const form = new FormData();
-      form.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }), digioPayload.file_name);
-      form.append('file_name', digioPayload.file_name);
-      form.append('signers', JSON.stringify(digioPayload.signers));
-      form.append('expire_in_days', String(digioPayload.expire_in_days));
-      form.append('notify_signers', String(digioPayload.notify_signers));
-      form.append('send_sign_link', String(digioPayload.send_sign_link));
-      form.append('display_on_page', 'all');
-      form.append('message', digioPayload.message);
+      const parts = [];
+      const addField = (name, value) => {
+        parts.push(Buffer.from(
+          `--${boundary}${CRLF}` +
+          `Content-Disposition: form-data; name="${name}"${CRLF}` +
+          `${CRLF}${value}${CRLF}`
+        ));
+      };
 
-      // Step 1: Upload document to Digio
-      // Do NOT set Content-Type — fetch sets it automatically with correct boundary
-      const uploadRes = await fetch(`${BASE}/v2/client/document/upload`, {
-        method: 'POST',
-        headers: {
-          'Authorization': auth
-          // Content-Type is set automatically by fetch when body is FormData
-        },
-        body: form
+      addField('file_name', digioPayload.file_name);
+      addField('signers', JSON.stringify(digioPayload.signers));
+      addField('expire_in_days', String(digioPayload.expire_in_days));
+      addField('notify_signers', String(digioPayload.notify_signers));
+      addField('send_sign_link', String(digioPayload.send_sign_link));
+      addField('display_on_page', 'all');
+      addField('message', digioPayload.message);
+
+      // File part
+      parts.push(Buffer.from(
+        `--${boundary}${CRLF}` +
+        `Content-Disposition: form-data; name="file"; filename="${digioPayload.file_name}"${CRLF}` +
+        `Content-Type: application/pdf${CRLF}${CRLF}`
+      ));
+      parts.push(pdfBuffer);
+      parts.push(Buffer.from(`${CRLF}--${boundary}--${CRLF}`));
+
+      const multipartBody = Buffer.concat(parts);
+
+      // Use native https module for reliable multipart
+      const https = require('https');
+      const baseUrl = new URL(`${BASE}/v2/client/document/upload`);
+
+      const uploadResult = await new Promise((resolve, reject) => {
+        const req = https.request({
+          hostname: baseUrl.hostname,
+          port: baseUrl.port || 443,
+          path: baseUrl.pathname,
+          method: 'POST',
+          headers: {
+            'Authorization': auth,
+            'Content-Type': `multipart/form-data; boundary=${boundary}`,
+            'Content-Length': multipartBody.length
+          }
+        }, (res) => {
+          let raw = '';
+          res.on('data', chunk => raw += chunk);
+          res.on('end', () => {
+            console.log('Digio status:', res.statusCode);
+            console.log('Digio body:', raw);
+            try { resolve({ status: res.statusCode, data: JSON.parse(raw) }); }
+            catch(e) { resolve({ status: res.statusCode, data: { message: raw } }); }
+          });
+        });
+        req.on('error', reject);
+        req.write(multipartBody);
+        req.end();
       });
 
-      const uploadText = await uploadRes.text();
-      console.log('Digio response status:', uploadRes.status);
-      console.log('Digio response body:', uploadText);
-
-      let uploadData;
-      try { uploadData = JSON.parse(uploadText); }
-      catch(e) { uploadData = { message: uploadText }; }
+      const uploadData = uploadResult.data;
 
       if (!uploadData.id) {
-        console.error('Digio upload failed. Status:', uploadRes.status, 'Body:', JSON.stringify(uploadData));
+        console.error('Digio upload failed. Status:', uploadResult.status, 'Body:', JSON.stringify(uploadData));
         return res.status(400).json({
-          error: uploadData.message || uploadData.error || `Digio error (HTTP ${uploadRes.status})`,
-          digio_status: uploadRes.status,
+          error: uploadData.message || uploadData.error || `Digio error (HTTP ${uploadResult.status})`,
+          digio_status: uploadResult.status,
           digio_response: uploadData,
           details: uploadData
         });
