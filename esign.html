@@ -473,7 +473,9 @@
       const data = await res.json();
 
       if (!data.success) {
-        showError(data.error || 'Failed to create sign request. Please try again.');
+        const errMsg = data.error || 'Failed to create sign request.';
+        const errDetail = data.details ? JSON.stringify(data.details).slice(0, 200) : '';
+        showError(errMsg + (errDetail ? ' — ' + errDetail : ''));
         setBtn('start-btn', 'start-btn-text', 'start-spinner', false, 'Send for eSign');
         return;
       }

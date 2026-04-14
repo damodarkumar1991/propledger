@@ -72,6 +72,33 @@ module.exports = async function handler(req, res) {
         landlordName, tenantName, propertyAddress, monthlyRent
       });
 
+      const digioPayload = {
+        file_name: `PropLedger_Agreement_${agreementId}.pdf`,
+        file_data: pdfBase64,
+        file_type: 'application/pdf',
+        signers: [
+          {
+            identifier: landlordEmail,
+            name: landlordName || 'Licensor',
+            reason: 'Signing as Licensor (Landlord)',
+            sign_type: 'electronic'
+          },
+          {
+            identifier: tenantEmail,
+            name: tenantName || 'Licensee',
+            reason: 'Signing as Licensee (Tenant)',
+            sign_type: 'electronic'
+          }
+        ],
+        expire_in_days: 30,
+        notify_signers: true,
+        send_sign_link: true,
+        message: `Please sign the Leave & License Agreement for ${propertyAddress || 'the property'} on PropLedger.`
+      };
+
+      console.log('Digio request URL:', `${BASE}/v2/client/document/uploadedits`);
+      console.log('Digio payload (without file_data):', JSON.stringify({...digioPayload, file_data: '[BASE64_PDF_' + pdfBase64.length + '_chars]'}));
+
       // Step 1: Upload document to Digio
       const uploadRes = await fetch(`${BASE}/v2/client/document/uploadedits`, {
         method: 'POST',
@@ -79,37 +106,19 @@ module.exports = async function handler(req, res) {
           'Authorization': auth,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          file_name: `PropLedger_Agreement_${agreementId}.pdf`,
-          file_data: pdfBase64,
-          file_type: 'application/pdf',
-          signers: [
-            {
-              identifier: landlordEmail,
-              name: landlordName || 'Licensor',
-              reason: 'Signing as Licensor (Landlord)',
-              sign_type: 'electronic'
-            },
-            {
-              identifier: tenantEmail,
-              name: tenantName || 'Licensee',
-              reason: 'Signing as Licensee (Tenant)',
-              sign_type: 'electronic'
-            }
-          ],
-          expire_in_days: 30,
-          notify_signers: true,
-          send_sign_link: true,
-          message: `Please sign the Leave & License Agreement for ${propertyAddress || 'the property'} on PropLedger.`
-        })
+        body: JSON.stringify(digioPayload)
       });
 
       const uploadData = await uploadRes.json();
+      console.log('Digio response status:', uploadRes.status);
+      console.log('Digio response body:', JSON.stringify(uploadData));
 
       if (!uploadData.id) {
-        console.error('Digio upload error:', uploadData);
+        console.error('Digio upload failed. Status:', uploadRes.status, 'Body:', JSON.stringify(uploadData));
         return res.status(400).json({
-          error: uploadData.message || 'Failed to create sign request',
+          error: uploadData.message || uploadData.error || `Digio error (HTTP ${uploadRes.status})`,
+          digio_status: uploadRes.status,
+          digio_response: uploadData,
           details: uploadData
         });
       }
