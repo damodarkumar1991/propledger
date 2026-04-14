@@ -101,63 +101,40 @@ module.exports = async function handler(req, res) {
       };
 
       console.log('Digio request URL:', `${BASE}/v2/client/document/upload`);
-      console.log('Payload meta (no file):', JSON.stringify({...digioPayload, file_data: '[OMITTED]'}));
+      console.log('Payload meta:', JSON.stringify({...digioPayload, file: '[PDF_BUFFER]'}));
 
-      // Digio requires multipart/form-data — NOT application/json
-      // Convert base64 PDF back to Buffer for the file part
+      // Digio requires multipart/form-data
+      // Use Node 18 native FormData + Blob (available in Vercel's runtime)
       const pdfBuffer = Buffer.from(pdfBase64, 'base64');
 
-      // Build multipart form manually (no FormData in Node serverless)
-      const boundary = '----PropLedgerBoundary' + Date.now();
-      const CRLF = '\r\n';
-
-      const buildPart = (name, value) =>
-        `--${boundary}${CRLF}Content-Disposition: form-data; name="${name}"${CRLF}${CRLF}${value}${CRLF}`;
-
-      let bodyParts = Buffer.from('');
-
-      // Text fields
-      const textFields = [
-        ['file_name', digioPayload.file_name],
-        ['file_type', 'application/pdf'],
-        ['expire_in_days', String(digioPayload.expire_in_days)],
-        ['notify_signers', String(digioPayload.notify_signers)],
-        ['send_sign_link', String(digioPayload.send_sign_link)],
-        ['display_on_page', 'all'],
-        ['message', digioPayload.message],
-        ['signers', JSON.stringify(digioPayload.signers)]
-      ];
-
-      for (const [name, value] of textFields) {
-        bodyParts = Buffer.concat([bodyParts, Buffer.from(buildPart(name, value))]);
-      }
-
-      // File part
-      const filePart = Buffer.concat([
-        Buffer.from(`--${boundary}${CRLF}`),
-        Buffer.from(`Content-Disposition: form-data; name="file"; filename="${digioPayload.file_name}"${CRLF}`),
-        Buffer.from(`Content-Type: application/pdf${CRLF}${CRLF}`),
-        pdfBuffer,
-        Buffer.from(CRLF)
-      ]);
-
-      const closing = Buffer.from(`--${boundary}--${CRLF}`);
-      const multipartBody = Buffer.concat([bodyParts, filePart, closing]);
+      const form = new FormData();
+      form.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }), digioPayload.file_name);
+      form.append('file_name', digioPayload.file_name);
+      form.append('signers', JSON.stringify(digioPayload.signers));
+      form.append('expire_in_days', String(digioPayload.expire_in_days));
+      form.append('notify_signers', String(digioPayload.notify_signers));
+      form.append('send_sign_link', String(digioPayload.send_sign_link));
+      form.append('display_on_page', 'all');
+      form.append('message', digioPayload.message);
 
       // Step 1: Upload document to Digio
+      // Do NOT set Content-Type — fetch sets it automatically with correct boundary
       const uploadRes = await fetch(`${BASE}/v2/client/document/upload`, {
         method: 'POST',
         headers: {
-          'Authorization': auth,
-          'Content-Type': `multipart/form-data; boundary=${boundary}`,
-          'Content-Length': String(multipartBody.length)
+          'Authorization': auth
+          // Content-Type is set automatically by fetch when body is FormData
         },
-        body: multipartBody
+        body: form
       });
 
-      const uploadData = await uploadRes.json();
+      const uploadText = await uploadRes.text();
       console.log('Digio response status:', uploadRes.status);
-      console.log('Digio response body:', JSON.stringify(uploadData));
+      console.log('Digio response body:', uploadText);
+
+      let uploadData;
+      try { uploadData = JSON.parse(uploadText); }
+      catch(e) { uploadData = { message: uploadText }; }
 
       if (!uploadData.id) {
         console.error('Digio upload failed. Status:', uploadRes.status, 'Body:', JSON.stringify(uploadData));
