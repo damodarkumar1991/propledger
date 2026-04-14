@@ -52,7 +52,7 @@ module.exports = async function handler(req, res) {
 
     // ── CREATE SIGN REQUEST ──────────────────────────────────────────────
     if (action === 'create-request') {
-      if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+      // Accepts POST (and GET for testing)
 
       const {
         agreementId, agreementText, agreementTitle,
