@@ -70,15 +70,19 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'Both landlord and tenant email required' });
       }
 
-      // Convert agreement text to PDF (base64)
-      // We generate a clean HTML → PDF using a simple approach
       const pdfBase64 = generateAgreementPDF(agreementText || '', {
         title: agreementTitle || 'Leave & License Agreement',
         landlordName, tenantName, propertyAddress, monthlyRent
       });
 
+      if (!pdfBase64 || pdfBase64.length < 100) {
+        return res.status(400).json({ error: 'Failed to generate PDF for signing.' });
+      }
+
       const digioPayload = {
         file_name: `PropLedger_Agreement_${agreementId || Date.now()}.pdf`,
+        file_data: pdfBase64,
+        file_type: 'application/pdf',
         signers: [
           {
             identifier: landlordEmail,
@@ -100,67 +104,39 @@ module.exports = async function handler(req, res) {
         message: `Please sign the Leave & License Agreement for ${propertyAddress || 'the property'} on PropLedger.`
       };
 
-      console.log('Digio request URL:', `${BASE}/v2/client/document/upload`);
+      // uploadedits accepts POST + JSON (uploadedits = uploadedits with signer annotations)
+      // Earlier METHOD_NOT_ALLOWED was our routing bug (was sending GET), not wrong endpoint
+      const endpoint = `${BASE}/v2/client/document/uploadedits`;
+      console.log('Digio POST to:', endpoint);
+      console.log('PDF base64 length:', pdfBase64.length);
+      console.log('Signers:', JSON.stringify(digioPayload.signers));
 
-      // Use axios + form-data — most reliable for multipart in Node serverless
       const axios = require('axios');
-      const FormDataLib = require('form-data');
-
-      const pdfBuffer = Buffer.from(pdfBase64, 'base64');
-      const form = new FormDataLib();
-
-      form.append('file', pdfBuffer, {
-        filename: digioPayload.file_name,
-        contentType: 'application/pdf',
-        knownLength: pdfBuffer.length
-      });
-      form.append('file_name', digioPayload.file_name);
-      form.append('signers', JSON.stringify(digioPayload.signers));
-      form.append('expire_in_days', String(digioPayload.expire_in_days));
-      form.append('notify_signers', String(digioPayload.notify_signers));
-      form.append('send_sign_link', String(digioPayload.send_sign_link));
-      form.append('display_on_page', 'all');
-      form.append('message', digioPayload.message);
-
-      console.log('Form headers:', JSON.stringify(form.getHeaders()));
-      console.log('PDF buffer size:', pdfBuffer.length);
-
       let axiosRes;
       try {
-        axiosRes = await axios.post(
-          `${BASE}/v2/client/document/upload`,
-          form,
-          {
-            headers: {
-              'Authorization': auth,
-              ...form.getHeaders()
-            },
-            maxContentLength: Infinity,
-            maxBodyLength: Infinity,
-            timeout: 30000
-          }
-        );
+        axiosRes = await axios.post(endpoint, digioPayload, {
+          headers: {
+            'Authorization': auth,
+            'Content-Type': 'application/json'
+          },
+          timeout: 30000
+        });
       } catch (axiosErr) {
-        const errData = axiosErr.response?.data || axiosErr.message;
-        console.error('Axios error:', JSON.stringify(errData));
+        const errData = axiosErr.response?.data || { message: axiosErr.message };
+        console.error('Digio error:', JSON.stringify(errData));
         return res.status(400).json({
-          error: axiosErr.response?.data?.message || axiosErr.message,
-          digio_status: axiosErr.response?.status,
-          details: axiosErr.response?.data
+          error: errData.message || axiosErr.message,
+          details: errData
         });
       }
 
-      console.log('Digio status:', axiosRes.status);
-      console.log('Digio response:', JSON.stringify(axiosRes.data));
-
+      console.log('Digio success:', JSON.stringify(axiosRes.data));
       const uploadData = axiosRes.data;
 
       if (!uploadData.id) {
         console.error('Digio upload failed:', JSON.stringify(uploadData));
         return res.status(400).json({
           error: uploadData.message || uploadData.error || 'Digio upload failed',
-          digio_response: uploadData,
-          digio_response: uploadData,
           details: uploadData
         });
       }
