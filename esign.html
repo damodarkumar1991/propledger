@@ -354,7 +354,7 @@
 
     // Load agreement
     const { data: ag } = await sb.from('agreements')
-      .select('*').eq('id', agreementId).single();
+      .select('*').eq('id', agreementId).maybeSingle();
 
     if (!ag) {
       showError('Agreement not found.');
@@ -364,9 +364,9 @@
     }
     agreement = ag;
 
-    // Load esign record
+    // Load esign record — may not exist yet for new agreements
     const { data: rec } = await sb.from('esign_records')
-      .select('*').eq('agreement_id', agreementId).single();
+      .select('*').eq('agreement_id', agreementId).maybeSingle();
     esignRecord = rec;
 
     if (rec?.digio_document_id) digioDocumentId = rec.digio_document_id;
@@ -453,10 +453,11 @@
     setBtn('start-btn', 'start-btn-text', 'start-spinner', true, 'Creating request...');
 
     try {
-      const res = await fetch('/api/esign/create-request', {
+      const res = await fetch('/api/esign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'create-request',
           agreementId: agreement.id,
           agreementText: agreement.agreement_text || '',
           agreementTitle: 'Leave & License Agreement',
@@ -633,7 +634,11 @@
   async function checkStatus() {
     if (!digioDocumentId) return;
     try {
-      const res = await fetch(`/api/esign/status?id=${digioDocumentId}`);
+      const res = await fetch('/api/esign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'status', documentId: digioDocumentId })
+      });
       const data = await res.json();
       if (data.allSigned) await recordTenantSigned();
       else if (data.landlordSigned) showPanel('panel-tenant-wait');
@@ -670,7 +675,15 @@
       alert('Signed PDF will be available once Digio API credentials are active.');
       return;
     }
-    window.open(`/api/esign/download?id=${digioDocumentId}`, '_blank');
+    // Open download via form POST to /api/esign
+    const form = document.createElement('form');
+    form.method = 'POST'; form.action = '/api/esign'; form.target = '_blank';
+    const inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'action'; inp.value = 'download';
+    const inp2 = document.createElement('input');
+    inp2.type = 'hidden'; inp2.name = 'documentId'; inp2.value = digioDocumentId;
+    form.appendChild(inp); form.appendChild(inp2);
+    document.body.appendChild(form); form.submit(); document.body.removeChild(form);
   }
 
   // ── FALLBACK for when SDK fails (redirect flow) ───────────────────────────
