@@ -184,13 +184,11 @@
     <a href="agreement.html" class="nav-item">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
       Agreements
-      <span class="nav-badge">V1</span>
     </a>
     <div class="nav-section-label">Tools</div>
     <a href="tenant-screening.html" class="nav-item">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       Tenant Screening
-      <span class="nav-badge" style="background:rgba(45,212,160,0.1);color:var(--green);border-color:rgba(45,212,160,0.2)">New</span>
     </a>
     <a href="properties.html" class="nav-item">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -285,7 +283,6 @@
         <div style="font-size:28px;margin-bottom:10px;">📊</div>
         <div style="font-size:15px;font-weight:600;color:var(--white);">Rent Tracker</div>
         <div style="font-size:13px;color:var(--muted);margin-top:6px;line-height:1.6;">Track monthly payments, auto-send reminders via SMS & email, generate rent receipts.</div>
-        <div style="display:inline-block;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:600;color:var(--muted-2);letter-spacing:1px;text-transform:uppercase;margin-top:10px;">Coming in V2</div>
       </div>
     </div>
 
@@ -379,6 +376,15 @@
     // Store globally so viewAgreement() can access the full text
     window._agreements = agreements || [];
 
+    // Fetch esign records to show signing status
+    const { data: esignRecords } = await sb
+      .from('esign_records')
+      .select('agreement_id, status, landlord_signed_at, tenant_signed_at')
+      .eq('user_id', currentUser.id);
+
+    const esignMap = {};
+    (esignRecords || []).forEach(r => { esignMap[r.agreement_id] = r; });
+
     const container = document.getElementById('agreements-container');
 
     if (error || !agreements || agreements.length === 0) {
@@ -421,16 +427,26 @@
             </tr>
           </thead>
           <tbody>
-            ${agreements.map(a => `
+            ${agreements.map(a => {
+              const esign = esignMap[a.id];
+              const esignStatus = esign?.status || null;
+              const esignBadge = esignStatus === 'completed'
+                ? `<span style="background:rgba(45,212,160,0.1);color:#2dd4a0;border:1px solid rgba(45,212,160,0.2);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:600;">✅ Signed</span>`
+                : esignStatus === 'initiated' || esignStatus === 'pending'
+                ? `<span style="background:rgba(251,191,36,0.1);color:#fbbf24;border:1px solid rgba(251,191,36,0.2);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:600;">⏳ Awaiting</span>`
+                : '';
+              const esignBtnLabel = esignStatus === 'completed' ? '📄 Signed' : esignStatus ? '⏳ Track' : '✍️ eSign';
+              return `
               <tr>
-                <td>
-                  <div class="td-primary">${escHtml(a.tenant_name)}</div>
-                </td>
-                <td>
-                  <div class="td-primary" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(a.property_address)}</div>
-                </td>
+                <td><div class="td-primary">${escHtml(a.tenant_name)}</div></td>
+                <td><div class="td-primary" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(a.property_address)}</div></td>
                 <td><div class="td-primary">₹${(a.monthly_rent||0).toLocaleString('en-IN')}</div></td>
-                <td><span class="status-badge ${a.status === 'active' ? 'badge-active' : 'badge-expired'}">${a.status || 'active'}</span></td>
+                <td>
+                  <div style="display:flex;flex-direction:column;gap:4px">
+                    <span class="status-badge ${a.status === 'active' ? 'badge-active' : 'badge-expired'}">${a.status || 'active'}</span>
+                    ${esignBadge}
+                  </div>
+                </td>
                 <td><div class="td-muted">${formatDate(a.created_at)}</div></td>
                 <td>
                   <div style="display:flex;gap:6px;align-items:center">
@@ -439,12 +455,13 @@
                       : `<a href="agreement.html" class="action-btn">New</a>`
                     }
                     ${a.agreement_text
-                      ? `<button class="action-btn" style="color:var(--gold);border-color:var(--gold-border);background:var(--gold-dim)" onclick="window.location.href='esign.html?id=${a.id}'">✍️ eSign</button>`
+                      ? `<button class="action-btn" style="color:var(--gold);border-color:var(--gold-border);background:var(--gold-dim)" onclick="window.location.href='esign.html?id=${a.id}'">${esignBtnLabel}</button>`
                       : ''
                     }
                   </div>
                 </td>
-              </tr>`).join('')}
+              </tr>`;
+            }).join('')}
           </tbody>
         </table>
       </div>`;
