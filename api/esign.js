@@ -75,14 +75,17 @@ module.exports = async function handler(req, res) {
         landlordName, tenantName, propertyAddress, monthlyRent
       });
 
-      if (!pdfBase64 || pdfBase64.length < 100) {
-        return res.status(400).json({ error: 'Failed to generate PDF for signing.' });
-      }
-
+      // Correct Digio JSON endpoint: /v2/client/document/uploadpdf
+      // Content-Type: application/json, file_data = base64 PDF
       const digioPayload = {
         file_name: `PropLedger_Agreement_${agreementId || Date.now()}.pdf`,
         file_data: pdfBase64,
-        file_type: 'application/pdf',
+        expire_in_days: 30,
+        notify_signers: true,
+        send_sign_link: true,
+        display_on_page: 'all',
+        generate_access_token: true,
+        comment: `Leave & License Agreement for ${propertyAddress || 'the property'} on PropLedger.`,
         signers: [
           {
             identifier: landlordEmail,
@@ -96,20 +99,13 @@ module.exports = async function handler(req, res) {
             reason: 'Signing as Licensee (Tenant)',
             sign_type: 'aadhaar'
           }
-        ],
-        expire_in_days: 30,
-        notify_signers: true,
-        send_sign_link: true,
-        display_on_page: 'all',
-        message: `Please sign the Leave & License Agreement for ${propertyAddress || 'the property'} on PropLedger.`
+        ]
       };
 
-      // uploadedits accepts POST + JSON (uploadedits = uploadedits with signer annotations)
-      // Earlier METHOD_NOT_ALLOWED was our routing bug (was sending GET), not wrong endpoint
-      const endpoint = `${BASE}/v2/client/document/uploadedits`;
+      const endpoint = `${BASE}/v2/client/document/uploadpdf`;
       console.log('Digio POST to:', endpoint);
-      console.log('PDF base64 length:', pdfBase64.length);
-      console.log('Signers:', JSON.stringify(digioPayload.signers));
+      console.log('file_data length:', pdfBase64.length);
+      console.log('signers:', JSON.stringify(digioPayload.signers));
 
       const axios = require('axios');
       let axiosRes;
@@ -143,31 +139,32 @@ module.exports = async function handler(req, res) {
 
       const documentId = uploadData.id;
 
-      // Step 2: Get signing URLs for each party
-      const landlordSigner = uploadData.signing_parties?.find(
-        s => s.identifier === landlordEmail
-      );
-      const tenantSigner = uploadData.signing_parties?.find(
-        s => s.identifier === tenantEmail
-      );
+      // Digio response: signing_parties array, access_token at top level
+      // With send_sign_link:true, Digio emails each signer directly
+      // With generate_access_token:true, we get an access token for SDK use
+      const signingParties = uploadData.signing_parties || [];
+      const landlordParty = signingParties.find(s => s.identifier === landlordEmail);
+      const tenantParty   = signingParties.find(s => s.identifier === tenantEmail);
 
-      // Build Digio Web SDK URLs
-      const landlordSignUrl = landlordSigner?.access_token
-        ? buildDigioSignUrl(documentId, landlordEmail, landlordSigner.access_token, DIGIO_ENV)
-        : null;
-      const tenantSignUrl = tenantSigner?.access_token
-        ? buildDigioSignUrl(documentId, tenantEmail, tenantSigner.access_token, DIGIO_ENV)
-        : null;
+      // Top-level access token (for SDK, if generate_access_token was true)
+      const accessTokenId = uploadData.access_token?.id || null;
+
+      // Build SDK sign URLs using the document ID + identifier
+      const landlordSignUrl = buildDigioSignUrl(documentId, landlordEmail, accessTokenId, DIGIO_ENV);
+      const tenantSignUrl   = buildDigioSignUrl(documentId, tenantEmail,   accessTokenId, DIGIO_ENV);
 
       return res.json({
         success: true,
         documentId,
         landlordSignUrl,
         tenantSignUrl,
-        landlordAccessToken: landlordSigner?.access_token,
-        tenantAccessToken: tenantSigner?.access_token,
+        landlordAccessToken: accessTokenId,
+        tenantAccessToken: accessTokenId,
+        signingParties,
         status: 'pending',
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        // send_sign_link:true means Digio already emailed signers
+        emailsSent: true
       });
     }
 
