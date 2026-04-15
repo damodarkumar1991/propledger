@@ -433,10 +433,16 @@
                 <td><span class="status-badge ${a.status === 'active' ? 'badge-active' : 'badge-expired'}">${a.status || 'active'}</span></td>
                 <td><div class="td-muted">${formatDate(a.created_at)}</div></td>
                 <td>
-                  ${a.agreement_text
-                    ? `<button class="action-btn" onclick="viewAgreement('${a.id}')">View</button>`
-                    : `<a href="agreement.html" class="action-btn">New</a>`
-                  }
+                  <div style="display:flex;gap:6px;align-items:center">
+                    ${a.agreement_text
+                      ? `<button class="action-btn" onclick="viewAgreement('${a.id}')">👁 View</button>`
+                      : `<a href="agreement.html" class="action-btn">New</a>`
+                    }
+                    ${a.agreement_text
+                      ? `<button class="action-btn" style="color:var(--gold);border-color:var(--gold-border);background:var(--gold-dim)" onclick="window.location.href='esign.html?id=${a.id}'">✍️ eSign</button>`
+                      : ''
+                    }
+                  </div>
                 </td>
               </tr>`).join('')}
           </tbody>
