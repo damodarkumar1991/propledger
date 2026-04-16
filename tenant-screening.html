@@ -6,6 +6,8 @@
 <title>PropLedger — Tenant Screening</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="/payment.js"></script>
 <style>
   :root{
     --navy:#0a0f1e;--navy-2:#0f1628;--navy-3:#141d35;--navy-4:#1a2444;
@@ -627,10 +629,21 @@
       property: document.getElementById('t-property').value.trim()
     };
 
-    // Move to verification step
-    showSubPanel('step-verify');
-    setStep(2);
-    await runChecks(tenantData);
+    // ── PAYMENT GATE ──────────────────────────────────────
+    await window.PropLedgerPayment.charge(
+      'screening',
+      {
+        userId: currentUser?.id,
+        userName: currentUser?.email?.split('@')[0] || '',
+        userEmail: currentUser?.email || ''
+      },
+      async (paymentResult) => {
+        // Payment verified — run checks
+        showSubPanel('step-verify');
+        setStep(2);
+        await runChecks(tenantData);
+      }
+    );
   }
 
   async function runChecks(data) {

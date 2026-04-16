@@ -6,6 +6,8 @@
 <title>PropLedger — Sign Agreement</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="/payment.js"></script>
 <!-- Digio Web SDK -->
 <script src="https://app.digio.in/sdk/v10/digio.js"></script>
 <style>
@@ -450,7 +452,40 @@
     }
 
     hideError();
-    setBtn('start-btn', 'start-btn-text', 'start-spinner', true, 'Creating request...');
+
+    // ── PAYMENT GATE ──────────────────────────────────────────────────────
+    // Check if already paid for this agreement
+    const { data: existingPayment } = await sb.from('payments')
+      .select('id')
+      .eq('agreement_id', agreement.id)
+      .eq('type', 'esign')
+      .eq('status', 'paid')
+      .maybeSingle();
+
+    if (!existingPayment) {
+      // Need to pay first
+      await window.PropLedgerPayment.charge(
+        'esign',
+        {
+          agreementId: agreement.id,
+          userId: currentUser?.id,
+          userName: document.getElementById('ll-name')?.textContent || '',
+          userEmail: llEmail
+        },
+        async (paymentResult) => {
+          // Payment verified — proceed with eSign
+          await _doESign(llEmail, ttEmail);
+        }
+      );
+      return;
+    }
+
+    // Already paid — proceed directly
+    await _doESign(llEmail, ttEmail);
+  }
+
+  async function _doESign(llEmail, ttEmail) {
+    setBtn('start-btn', 'start-btn-text', 'start-spinner', true, 'Sending for eSign...');
 
     try {
       const res = await fetch('/api/esign', {
@@ -506,9 +541,7 @@
       showPanel('panel-signing');
       setBtn('start-btn', 'start-btn-text', 'start-spinner', false, 'Send for eSign');
 
-      // In demo mode, show message
       if (data.demo) {
-        showPanel('panel-signing');
         document.getElementById('panel-signing').querySelector('.action-sub').textContent =
           'Demo mode — Digio credentials not configured yet. Click below to simulate signing.';
       }
