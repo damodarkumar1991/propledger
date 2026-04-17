@@ -2,8 +2,9 @@
   "name": "propledger",
   "version": "1.0.0",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.0",
+    "@supabase/supabase-js": "^2.39.0",
     "axios": "^1.6.0",
-    "razorpay": "^2.9.2",
-    "@supabase/supabase-js": "^2.39.0"
+    "razorpay": "^2.9.2"
   }
 }

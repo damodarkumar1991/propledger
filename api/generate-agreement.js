@@ -2,9 +2,6 @@
 // PropLedger — Complete Indian Rental Agreement Generator
 // Produces a court-admissible, properly formatted document
 
-const Anthropic = require('@anthropic-ai/sdk');
-const client = new Anthropic.default({ apiKey: process.env.ANTHROPIC_API_KEY });
-
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -89,6 +86,8 @@ ${formatTable(
     // Only use Claude if user has added special custom clauses that need drafting
     if (d.specialClauses && d.specialClauses.trim().length > 50) {
       try {
+        const Anthropic = require('@anthropic-ai/sdk');
+        const client = new Anthropic.default({ apiKey: process.env.ANTHROPIC_API_KEY });
         const message = await client.messages.create({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 800,
