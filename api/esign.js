@@ -62,124 +62,111 @@ module.exports = async function handler(req, res) {
         landlordName, tenantName, propertyAddress, monthlyRent
       });
 
-      // Callback URL — Surepass redirects here after signing
       const BASE_URL = 'https://www.propledger.in';
       const redirectUrl = `${BASE_URL}/esign.html?id=${agreementId}&signed=true`;
 
-      // Step 1: Initialize eSign for LANDLORD
-      const landlordPayload = {
-        sign_type: 'NSDL',
-        pdf_pre_uploaded: false,
-        file_data: pdfBase64,
-        file_name: `PropLedger_Agreement_${agreementId || Date.now()}.pdf`,
-        redirect_url: redirectUrl,           // ← email link redirects back to PropLedger
+      // Step 1: Upload PDF first, get a URL back
+      let pdfUrl = null;
+      try {
+        const FormData = require('form-data');
+        const pdfBuffer = Buffer.from(pdfBase64, 'base64');
+        const form = new FormData();
+        form.append('file', pdfBuffer, {
+          filename: `PropLedger_Agreement_${agreementId || Date.now()}.pdf`,
+          contentType: 'application/pdf',
+          knownLength: pdfBuffer.length
+        });
+
+        const uploadRes = await axios.post(
+          `${SUREPASS_BASE}/api/v1/esign/upload-pdf`,
+          form,
+          { headers: { ...headers, ...form.getHeaders() }, timeout: 30000 }
+        );
+        console.log('PDF upload response:', JSON.stringify(uploadRes.data));
+        pdfUrl = uploadRes.data?.data?.file_url || uploadRes.data?.data?.pdf_url || uploadRes.data?.file_url;
+      } catch (uploadErr) {
+        console.error('PDF upload error:', uploadErr.response?.data || uploadErr.message);
+        // If upload endpoint is different, fall back to base64 in payload
+      }
+
+      // Step 2: Initialize eSign for each signer
+      // Correct payload based on Surepass actual API spec
+      const makePayload = (name, email, xPos) => ({
+        pdf_pre_uploaded: !!pdfUrl,
+        ...(pdfUrl ? { pdf_url: pdfUrl } : { file_data: pdfBase64 }),
+        expiry_minutes: 10080, // 7 days
+        sign_type: 'aadhaar',
+        redirect_url: redirectUrl,
         config: {
           reason: `Signing Leave & License Agreement for ${propertyAddress || 'the property'}`,
-          skip_otp: false
-        },
-        positions: [{ page: 1, x: 80, y: 100 }],
-        prefill_options: {
-          full_name: landlordName || '',
-          user_email: landlordEmail
-        }
-      };
-
-      console.log('Surepass eSign initialize for landlord:', landlordEmail);
-
-      let landlordRes;
-      try {
-        landlordRes = await axios.post(
-          `${SUREPASS_BASE}/api/v1/esign/initialize`,
-          landlordPayload,
-          { headers, timeout: 30000 }
-        );
-      } catch (err) {
-        const errData = err.response?.data || { message: err.message };
-        console.error('Surepass landlord init error:', JSON.stringify(errData));
-        return res.status(400).json({
-          error: errData.message || err.message,
-          details: errData
-        });
-      }
-
-      const landlordData = landlordRes.data;
-      console.log('Landlord init response:', JSON.stringify(landlordData));
-
-      if (!landlordData.success || !landlordData.data?.client_id) {
-        return res.status(400).json({
-          error: landlordData.message || 'Failed to initialize eSign for landlord',
-          details: landlordData
-        });
-      }
-
-      const landlordToken = landlordData.data.client_id;
-      const landlordSignUrl = `https://esign-client.surepass.io/?token=${landlordToken}`;
-
-      // Step 2: Initialize eSign for TENANT
-      const tenantPayload = {
-        ...landlordPayload,
-        positions: [{ page: 1, x: 320, y: 100 }],
-        prefill_options: {
-          full_name: tenantName || '',
-          user_email: tenantEmail
-        }
-      };
-
-      let tenantToken = null;
-      let tenantSignUrl = null;
-
-      try {
-        const tenantRes = await axios.post(
-          `${SUREPASS_BASE}/api/v1/esign/initialize`,
-          tenantPayload,
-          { headers, timeout: 30000 }
-        );
-        const tenantData = tenantRes.data;
-        console.log('Tenant init response:', JSON.stringify(tenantData));
-        if (tenantData.success && tenantData.data?.client_id) {
-          tenantToken = tenantData.data.client_id;
-          tenantSignUrl = `https://esign-client.surepass.io/?token=${tenantToken}`;
-        }
-      } catch (err) {
-        console.error('Tenant init error (non-fatal):', err.message);
-      }
-
-      // Step 3: Email both parties their signing links
-      try {
-        const fetch = require('node-fetch').default || require('node-fetch');
-
-        // Email landlord
-        await axios.post(`${BASE_URL}/api/send-email`, {
-          type: 'esign_invite',
-          to: landlordEmail,
-          data: {
-            name: landlordName || 'Licensor',
-            role: 'Landlord (Licensor)',
-            signingUrl: landlordSignUrl,
-            propertyAddress: propertyAddress || '',
-            otherParty: tenantName || 'Tenant'
+          accept_virtual_sign: false,
+          track_location: false,
+          allow_download: true,
+          skip_otp: false,
+          skip_email: false,
+          stamp_paper_amount: '',
+          stamp_paper_state: '',
+          stamp_data: {},
+          auth_mode: 1,
+          positions: {
+            1: [{ x: xPos, y: 100, width: 200, height: 60 }]
           }
-        });
+        },
+        prefill_options: {
+          full_name: name || '',
+          user_email: email
+        }
+      });
 
-        // Email tenant
+      console.log('Initializing eSign for landlord:', landlordEmail);
+      let landlordToken = null;
+      try {
+        const r = await axios.post(
+          `${SUREPASS_BASE}/api/v1/esign/initialize`,
+          makePayload(landlordName, landlordEmail, 50),
+          { headers, timeout: 30000 }
+        );
+        console.log('Landlord init:', JSON.stringify(r.data));
+        landlordToken = r.data?.data?.client_id;
+        if (!landlordToken) throw new Error(r.data?.message || 'No client_id in response');
+      } catch (err) {
+        const e = err.response?.data || { message: err.message };
+        console.error('Landlord init error:', JSON.stringify(e));
+        return res.status(400).json({ error: e.message || err.message, details: e });
+      }
+
+      console.log('Initializing eSign for tenant:', tenantEmail);
+      let tenantToken = null;
+      try {
+        const r = await axios.post(
+          `${SUREPASS_BASE}/api/v1/esign/initialize`,
+          makePayload(tenantName, tenantEmail, 320),
+          { headers, timeout: 30000 }
+        );
+        console.log('Tenant init:', JSON.stringify(r.data));
+        tenantToken = r.data?.data?.client_id;
+      } catch (err) {
+        console.error('Tenant init error (non-fatal):', err.response?.data || err.message);
+      }
+
+      const landlordSignUrl = `https://esign-client.surepass.io/?token=${landlordToken}`;
+      const tenantSignUrl = tenantToken ? `https://esign-client.surepass.io/?token=${tenantToken}` : null;
+
+      // Step 3: Email both parties
+      try {
+        await axios.post(`${BASE_URL}/api/send-email`, {
+          type: 'esign_invite', to: landlordEmail,
+          data: { name: landlordName || 'Licensor', role: 'Landlord (Licensor)', signingUrl: landlordSignUrl, propertyAddress, otherParty: tenantName || 'Tenant' }
+        });
         if (tenantSignUrl) {
           await axios.post(`${BASE_URL}/api/send-email`, {
-            type: 'esign_invite',
-            to: tenantEmail,
-            data: {
-              name: tenantName || 'Licensee',
-              role: 'Tenant (Licensee)',
-              signingUrl: tenantSignUrl,
-              propertyAddress: propertyAddress || '',
-              otherParty: landlordName || 'Landlord'
-            }
+            type: 'esign_invite', to: tenantEmail,
+            data: { name: tenantName || 'Licensee', role: 'Tenant (Licensee)', signingUrl: tenantSignUrl, propertyAddress, otherParty: landlordName || 'Landlord' }
           });
         }
-
         console.log('eSign emails sent to:', landlordEmail, tenantEmail);
       } catch (emailErr) {
-        // Email failure is non-fatal — return signing URLs in response anyway
-        console.error('Email sending failed (non-fatal):', emailErr.message);
+        console.error('Email error (non-fatal):', emailErr.message);
       }
 
       return res.json({
