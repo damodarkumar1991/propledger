@@ -1,6 +1,8 @@
-// /api/esign.js — Digio eSign Integration for PropLedger
-// Handles: create-request, webhook, download
-// Uses Digio's hosted signing UI — no custom OTP needed
+// /api/esign.js — Surepass eSign Integration for PropLedger
+// Replaces Digio. Uses Surepass hosted eSign popup + NSDL backend.
+// Docs: https://github.com/surepassio/aadhaar-esign-web-sdk
+
+const axios = require('axios');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -8,381 +10,323 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const DIGIO_CLIENT_ID     = process.env.DIGIO_CLIENT_ID;
-  const DIGIO_CLIENT_SECRET = process.env.DIGIO_CLIENT_SECRET;
-  const DIGIO_ENV           = process.env.DIGIO_ENV || 'production';
+  const SUREPASS_TOKEN = process.env.SUREPASS_TOKEN;
+  const SUREPASS_BASE  = process.env.SUREPASS_ENV === 'production'
+    ? 'https://kyc-api.surepass.io'
+    : 'https://sandbox.surepass.app';
 
-  // Digio base URLs
-  const BASE = DIGIO_ENV === 'sandbox'
-    ? 'https://ext.digio.in:444'
-    : 'https://api.digio.in';
-  
-  // Also try without port if above fails - some environments block non-standard ports
-  const BASE_ALT = DIGIO_ENV === 'sandbox'
-    ? 'https://ext.digio.in'
-    : 'https://api.digio.in';
+  const headers = {
+    'Authorization': `Bearer ${SUREPASS_TOKEN}`,
+    'Content-Type':  'application/json'
+  };
 
-  const auth = (DIGIO_CLIENT_ID && DIGIO_CLIENT_SECRET)
-    ? 'Basic ' + Buffer.from(`${DIGIO_CLIENT_ID}:${DIGIO_CLIENT_SECRET}`).toString('base64')
-    : null;
-
-  // Action can come from URL path (/api/esign/create-request)
-  // OR from request body ({action: 'create-request'}) when called as /api/esign
-  const urlAction = req.url.split('/').pop().split('?')[0];
-  const action = (urlAction === 'esign' || !urlAction)
+  // Resolve action from URL path or body
+  const urlPart = req.url.split('/').pop().split('?')[0];
+  const action = (urlPart === 'esign' || !urlPart)
     ? (req.body?.action || 'create-request')
-    : urlAction;
+    : urlPart;
 
-  // ── DEMO MODE: no credentials configured ────────────────────────────────
-  if (!auth) {
+  // ── DEMO MODE ──────────────────────────────────────────────────────────────
+  if (!SUREPASS_TOKEN) {
+    console.log('No SUREPASS_TOKEN — demo mode for action:', action);
     if (action === 'create-request') {
-      const { agreementId } = req.body || {};
       return res.json({
-        success: true,
-        demo: true,
-        documentId: 'DEMO_DOC_' + Date.now(),
-        landlordSignUrl: `https://www.propledger.in/esign.html?id=${agreementId}&mode=demo&role=landlord`,
-        tenantSignUrl: `https://www.propledger.in/esign.html?id=${agreementId}&mode=demo&role=tenant`,
-        message: 'Demo mode — add DIGIO_CLIENT_ID and DIGIO_CLIENT_SECRET to enable real signing'
+        success: true, demo: true,
+        documentId: 'DEMO-' + Date.now(),
+        landlordToken: 'demo-landlord-token',
+        tenantToken:   'demo-tenant-token',
+        status: 'initiated'
       });
     }
-    if (action === 'status') {
-      return res.json({ success: true, status: 'demo', signed: false });
-    }
-    return res.json({ success: true, demo: true });
+    return res.json({ success: true, demo: true, status: 'pending' });
   }
 
-  // ── LIVE MODE ────────────────────────────────────────────────────────────
   try {
 
-    // ── CREATE SIGN REQUEST ──────────────────────────────────────────────
+    // ── CREATE SIGN REQUEST ───────────────────────────────────────────────────
     if (action === 'create-request') {
-      // Accepts POST (and GET for testing)
-
       const {
         agreementId, agreementText, agreementTitle,
         landlordName, landlordEmail,
         tenantName, tenantEmail,
         propertyAddress, monthlyRent
-      } = req.body;
+      } = req.body || {};
 
       if (!landlordEmail || !tenantEmail) {
-        return res.status(400).json({ error: 'Both landlord and tenant email required' });
+        return res.status(400).json({ error: 'Both email addresses are required' });
       }
 
+      // Generate PDF base64
       const pdfBase64 = generateAgreementPDF(agreementText || '', {
         title: agreementTitle || 'Leave & License Agreement',
         landlordName, tenantName, propertyAddress, monthlyRent
       });
 
-      // Correct Digio JSON endpoint: /v2/client/document/uploadpdf
-      // Content-Type: application/json, file_data = base64 PDF
-      const digioPayload = {
-        file_name: `PropLedger_Agreement_${agreementId || Date.now()}.pdf`,
+      // Callback URL — Surepass redirects here after signing
+      const BASE_URL = 'https://www.propledger.in';
+      const redirectUrl = `${BASE_URL}/esign.html?id=${agreementId}&signed=true`;
+
+      // Step 1: Initialize eSign for LANDLORD
+      const landlordPayload = {
+        sign_type: 'NSDL',
+        pdf_pre_uploaded: false,
         file_data: pdfBase64,
-        expire_in_days: 30,
-        notify_signers: true,
-        send_sign_link: true,
-        display_on_page: 'all',
-        generate_access_token: true,
-        comment: `Leave & License Agreement for ${propertyAddress || 'the property'} on PropLedger.`,
-        signers: [
-          {
-            identifier: landlordEmail,
-            name: landlordName || 'Licensor',
-            reason: 'Signing as Licensor (Landlord)',
-            sign_type: 'aadhaar'
-          },
-          {
-            identifier: tenantEmail,
-            name: tenantName || 'Licensee',
-            reason: 'Signing as Licensee (Tenant)',
-            sign_type: 'aadhaar'
-          }
-        ]
+        file_name: `PropLedger_Agreement_${agreementId || Date.now()}.pdf`,
+        redirect_url: redirectUrl,           // ← email link redirects back to PropLedger
+        config: {
+          reason: `Signing Leave & License Agreement for ${propertyAddress || 'the property'}`,
+          skip_otp: false
+        },
+        positions: [{ page: 1, x: 80, y: 100 }],
+        prefill_options: {
+          full_name: landlordName || '',
+          user_email: landlordEmail
+        }
       };
 
-      const endpoint = `${BASE}/v2/client/document/uploadpdf`;
-      console.log('Digio POST to:', endpoint);
-      console.log('file_data length:', pdfBase64.length);
-      console.log('signers:', JSON.stringify(digioPayload.signers));
+      console.log('Surepass eSign initialize for landlord:', landlordEmail);
 
-      const axios = require('axios');
-      let axiosRes;
+      let landlordRes;
       try {
-        axiosRes = await axios.post(endpoint, digioPayload, {
-          headers: {
-            'Authorization': auth,
-            'Content-Type': 'application/json'
-          },
-          timeout: 30000
-        });
-      } catch (axiosErr) {
-        const errData = axiosErr.response?.data || { message: axiosErr.message };
-        console.error('Digio error:', JSON.stringify(errData));
+        landlordRes = await axios.post(
+          `${SUREPASS_BASE}/api/v1/esign/initialize`,
+          landlordPayload,
+          { headers, timeout: 30000 }
+        );
+      } catch (err) {
+        const errData = err.response?.data || { message: err.message };
+        console.error('Surepass landlord init error:', JSON.stringify(errData));
         return res.status(400).json({
-          error: errData.message || axiosErr.message,
+          error: errData.message || err.message,
           details: errData
         });
       }
 
-      console.log('Digio success:', JSON.stringify(axiosRes.data));
-      const uploadData = axiosRes.data;
+      const landlordData = landlordRes.data;
+      console.log('Landlord init response:', JSON.stringify(landlordData));
 
-      if (!uploadData.id) {
-        console.error('Digio upload failed:', JSON.stringify(uploadData));
+      if (!landlordData.success || !landlordData.data?.client_id) {
         return res.status(400).json({
-          error: uploadData.message || uploadData.error || 'Digio upload failed',
-          details: uploadData
+          error: landlordData.message || 'Failed to initialize eSign for landlord',
+          details: landlordData
         });
       }
 
-      const documentId = uploadData.id;
+      const landlordToken = landlordData.data.client_id;
+      const landlordSignUrl = `https://esign-client.surepass.io/?token=${landlordToken}`;
 
-      // Digio response: signing_parties array, access_token at top level
-      // With send_sign_link:true, Digio emails each signer directly
-      // With generate_access_token:true, we get an access token for SDK use
-      const signingParties = uploadData.signing_parties || [];
-      const landlordParty = signingParties.find(s => s.identifier === landlordEmail);
-      const tenantParty   = signingParties.find(s => s.identifier === tenantEmail);
+      // Step 2: Initialize eSign for TENANT
+      const tenantPayload = {
+        ...landlordPayload,
+        positions: [{ page: 1, x: 320, y: 100 }],
+        prefill_options: {
+          full_name: tenantName || '',
+          user_email: tenantEmail
+        }
+      };
 
-      // Top-level access token (for SDK, if generate_access_token was true)
-      const accessTokenId = uploadData.access_token?.id || null;
+      let tenantToken = null;
+      let tenantSignUrl = null;
 
-      // Build SDK sign URLs using the document ID + identifier
-      const landlordSignUrl = buildDigioSignUrl(documentId, landlordEmail, accessTokenId, DIGIO_ENV);
-      const tenantSignUrl   = buildDigioSignUrl(documentId, tenantEmail,   accessTokenId, DIGIO_ENV);
+      try {
+        const tenantRes = await axios.post(
+          `${SUREPASS_BASE}/api/v1/esign/initialize`,
+          tenantPayload,
+          { headers, timeout: 30000 }
+        );
+        const tenantData = tenantRes.data;
+        console.log('Tenant init response:', JSON.stringify(tenantData));
+        if (tenantData.success && tenantData.data?.client_id) {
+          tenantToken = tenantData.data.client_id;
+          tenantSignUrl = `https://esign-client.surepass.io/?token=${tenantToken}`;
+        }
+      } catch (err) {
+        console.error('Tenant init error (non-fatal):', err.message);
+      }
+
+      // Step 3: Email both parties their signing links
+      try {
+        const fetch = require('node-fetch').default || require('node-fetch');
+
+        // Email landlord
+        await axios.post(`${BASE_URL}/api/send-email`, {
+          type: 'esign_invite',
+          to: landlordEmail,
+          data: {
+            name: landlordName || 'Licensor',
+            role: 'Landlord (Licensor)',
+            signingUrl: landlordSignUrl,
+            propertyAddress: propertyAddress || '',
+            otherParty: tenantName || 'Tenant'
+          }
+        });
+
+        // Email tenant
+        if (tenantSignUrl) {
+          await axios.post(`${BASE_URL}/api/send-email`, {
+            type: 'esign_invite',
+            to: tenantEmail,
+            data: {
+              name: tenantName || 'Licensee',
+              role: 'Tenant (Licensee)',
+              signingUrl: tenantSignUrl,
+              propertyAddress: propertyAddress || '',
+              otherParty: landlordName || 'Landlord'
+            }
+          });
+        }
+
+        console.log('eSign emails sent to:', landlordEmail, tenantEmail);
+      } catch (emailErr) {
+        // Email failure is non-fatal — return signing URLs in response anyway
+        console.error('Email sending failed (non-fatal):', emailErr.message);
+      }
 
       return res.json({
         success: true,
-        documentId,
+        documentId: landlordToken,
+        landlordToken,
+        tenantToken,
         landlordSignUrl,
         tenantSignUrl,
-        landlordAccessToken: accessTokenId,
-        tenantAccessToken: accessTokenId,
-        signingParties,
-        status: 'pending',
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        // send_sign_link:true means Digio already emailed signers
-        emailsSent: true
+        emailsSent: true,
+        status: 'initiated'
       });
     }
 
-    // ── GET STATUS ───────────────────────────────────────────────────────
+    // ── STATUS CHECK ─────────────────────────────────────────────────────────
     if (action === 'status') {
       const documentId = req.query?.id || req.body?.documentId;
       if (!documentId) return res.status(400).json({ error: 'documentId required' });
 
-      const statusRes = await fetch(`${BASE}/v2/client/document/${documentId}`, {
-        headers: { 'Authorization': auth }
-      });
-      const statusData = await statusRes.json();
-
-      const allSigned = statusData.signing_parties?.every(p => p.status === 'signed');
-      const landlordSigned = statusData.signing_parties?.find(
-        s => s.role === 'landlord' || statusData.signing_parties?.indexOf(s) === 0
-      )?.status === 'signed';
-
-      return res.json({
-        success: true,
-        documentId,
-        status: statusData.status,
-        allSigned,
-        landlordSigned,
-        signers: statusData.signing_parties?.map(s => ({
-          name: s.name,
-          identifier: s.identifier,
-          status: s.status,
-          signedAt: s.signing_time
-        }))
-      });
+      try {
+        const statusRes = await axios.get(
+          `${SUREPASS_BASE}/api/v1/esign/status/${documentId}`,
+          { headers, timeout: 15000 }
+        );
+        const d = statusRes.data;
+        const allSigned = d.data?.status === 'ESIGN_COMPLETED';
+        return res.json({
+          success: true,
+          status: d.data?.status,
+          allSigned,
+          landlordSigned: allSigned,
+          raw: d.data
+        });
+      } catch (err) {
+        return res.json({ success: false, status: 'unknown', error: err.message });
+      }
     }
 
-    // ── DOWNLOAD SIGNED PDF ──────────────────────────────────────────────
+    // ── DOWNLOAD ─────────────────────────────────────────────────────────────
     if (action === 'download') {
       const documentId = req.query?.id || req.body?.documentId;
       if (!documentId) return res.status(400).json({ error: 'documentId required' });
 
-      const dlRes = await fetch(`${BASE}/v2/client/document/${documentId}/download`, {
-        headers: { 'Authorization': auth }
-      });
-
-      if (!dlRes.ok) {
-        return res.status(400).json({ error: 'Failed to download document' });
+      try {
+        const dlRes = await axios.get(
+          `${SUREPASS_BASE}/api/v1/esign/download/${documentId}`,
+          { headers, responseType: 'arraybuffer', timeout: 30000 }
+        );
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=signed_agreement_${documentId}.pdf`);
+        return res.send(Buffer.from(dlRes.data));
+      } catch (err) {
+        return res.status(500).json({ error: 'Download failed: ' + err.message });
       }
-
-      const buffer = await dlRes.arrayBuffer();
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="signed_agreement_${documentId}.pdf"`);
-      return res.send(Buffer.from(buffer));
     }
 
-    // ── WEBHOOK (Digio calls this when all parties sign) ─────────────────
+    // ── WEBHOOK (Surepass callback) ──────────────────────────────────────────
     if (action === 'webhook') {
-      const event = req.body;
-      console.log('Digio webhook:', JSON.stringify(event));
+      const { client_id, status } = req.body || {};
+      console.log('Surepass webhook:', client_id, status);
 
-      if (event?.event === 'sign_request.signed' || event?.event === 'document.signed') {
-        const documentId = event?.document_id || event?.id;
-
-        // Update Supabase — mark agreement as fully esigned
-        if (documentId) {
-          try {
-            const { createClient } = require('@supabase/supabase-js');
-            const sb = createClient(
-              process.env.SUPABASE_URL,
-              process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY
-            );
-            await sb.from('esign_records')
-              .update({
-                status: 'completed',
-                completed_at: new Date().toISOString(),
-                digio_document_id: documentId
-              })
-              .eq('digio_document_id', documentId);
-
-            await sb.from('agreements')
-              .update({ status: 'esigned' })
-              .eq('digio_document_id', documentId);
-          } catch (e) {
-            console.error('Supabase update error:', e);
-          }
-        }
+      if (status === 'ESIGN_COMPLETED' && client_id) {
+        const { createClient } = require('@supabase/supabase-js');
+        const sb = createClient(
+          process.env.SUPABASE_URL,
+          process.env.SUPABASE_ANON_KEY
+        );
+        await sb.from('esign_records')
+          .update({ status: 'completed', signed_at: new Date().toISOString() })
+          .or(`landlord_access_token.eq.${client_id},tenant_access_token.eq.${client_id}`);
       }
-
       return res.json({ success: true });
     }
 
     return res.status(404).json({ error: 'Unknown action: ' + action });
 
   } catch (error) {
-    console.error('eSign API error:', error);
-    return res.status(500).json({
-      error: 'eSign service error',
-      message: error.message
-    });
+    console.error('esign handler error:', error.message);
+    return res.status(500).json({ error: error.message });
   }
 };
 
-// ── HELPERS ─────────────────────────────────────────────────────────────────
-
-function buildDigioSignUrl(documentId, identifier, accessToken, env) {
-  const base = env === 'sandbox'
-    ? 'https://ext.digio.in:444'
-    : 'https://app.digio.in';
-  return `${base}/#/gateway/login/${documentId}/${accessToken}/${encodeURIComponent(identifier)}`;
-}
-
+// ── PDF GENERATOR ─────────────────────────────────────────────────────────────
 function generateAgreementPDF(agreementText, meta) {
-  // Generate a valid minimal PDF using raw PDF syntax
-  // No external libraries needed — works in Vercel serverless
-
   const title = meta.title || 'Leave & License Agreement';
   const landlord = (meta.landlordName || 'Licensor').replace(/[()\\]/g, '');
   const tenant = (meta.tenantName || 'Licensee').replace(/[()\\]/g, '');
   const address = (meta.propertyAddress || '').replace(/[()\\]/g, '').slice(0, 80);
   const rent = meta.monthlyRent ? `Rs.${parseInt(meta.monthlyRent).toLocaleString()}` : '';
 
-  // Clean and chunk the agreement text into PDF-safe lines
   const cleanText = (agreementText || '')
-    .replace(/[^\x20-\x7E\n]/g, ' ')  // ASCII only
-    .replace(/[()\\]/g, ' ')           // Remove PDF special chars
-    .replace(/\*\*/g, '')              // Remove markdown bold
-    .replace(/━+/g, '---')            // Replace unicode bars
+    .replace(/[^\x20-\x7E\n]/g, ' ')
+    .replace(/[()\\]/g, ' ')
+    .replace(/\*\*/g, '')
+    .replace(/━+/g, '---')
     .trim();
 
   const words = cleanText.split(/\s+/);
   const lines = [];
-  let currentLine = '';
-  const maxChars = 85;
-
+  let cur = '';
   for (const word of words) {
-    if ((currentLine + ' ' + word).trim().length <= maxChars) {
-      currentLine = (currentLine + ' ' + word).trim();
+    if ((cur + ' ' + word).trim().length <= 85) {
+      cur = (cur + ' ' + word).trim();
     } else {
-      if (currentLine) lines.push(currentLine);
-      currentLine = word;
+      if (cur) lines.push(cur);
+      cur = word;
     }
   }
-  if (currentLine) lines.push(currentLine);
+  if (cur) lines.push(cur);
 
-  // Build PDF content stream
-  const fontSize = 9;
-  const lineHeight = fontSize * 1.6;
-  const pageHeight = 841; // A4
+  const lineH = 14.4;
   const marginTop = 780;
   const marginBottom = 50;
-  const linesPerPage = Math.floor((marginTop - marginBottom) / lineHeight);
 
-  let streamContent = '';
-  // Header
-  streamContent += `BT\n/F1 14 Tf\n100 810 Td\n(${title}) Tj\n`;
-  streamContent += `/F1 10 Tf\n0 -22 Td\n(Landlord: ${landlord}   Tenant: ${tenant}) Tj\n`;
-  streamContent += `0 -14 Td\n(Property: ${address}) Tj\n`;
-  if (rent) streamContent += `0 -14 Td\n(Monthly Rent: ${rent}) Tj\n`;
-  streamContent += `ET\n`;
-
-  // Draw separator line
-  streamContent += `0.5 w\n50 755 m\n545 755 l\nS\n`;
-
-  // Agreement text lines
-  let y = 740;
-  streamContent += `BT\n/F1 ${fontSize} Tf\n50 ${y} Td\n`;
-
-  for (let i = 0; i < lines.length; i++) {
-    if (i > 0 && i % linesPerPage === 0) {
-      // Simple page break handling - just continue on same page for now
-      // Full multi-page support would need more complex PDF structure
-    }
-    streamContent += `(${lines[i]}) Tj\n0 -${lineHeight} Td\n`;
+  let stream = '';
+  stream += `BT\n/F1 14 Tf\n100 810 Td\n(${title}) Tj\n`;
+  stream += `/F1 10 Tf\n0 -22 Td\n(Landlord: ${landlord}   Tenant: ${tenant}) Tj\n`;
+  stream += `/F1 10 Tf\n0 -14 Td\n(Property: ${address}) Tj\n`;
+  if (rent) stream += `0 -14 Td\n(Monthly Rent: ${rent}) Tj\n`;
+  stream += `ET\n0.5 w\n50 755 m\n545 755 l\nS\n`;
+  stream += `BT\n/F1 9 Tf\n50 740 Td\n`;
+  for (const line of lines) {
+    stream += `(${line}) Tj\n0 -${lineH} Td\n`;
   }
+  stream += `ET\n`;
+  // Signature boxes
+  stream += `BT\n/F1 10 Tf\n50 100 Td\n`;
+  stream += `(Licensor: ______________________) Tj\n`;
+  stream += `300 0 Td\n(Licensee: ______________________) Tj\nET\n`;
+  stream += `BT\n/F1 8 Tf\n180 30 Td\n(Generated by PropLedger - propledger.in) Tj\nET\n`;
 
-  // Signature block
-  streamContent += `ET\n`;
-  streamContent += `BT\n/F1 10 Tf\n50 100 Td\n`;
-  streamContent += `(Licensor Signature: _________________________) Tj\n`;
-  streamContent += `300 0 Td\n(Licensee Signature: _________________________) Tj\n`;
-  streamContent += `ET\n`;
-  streamContent += `BT\n/F1 8 Tf\n160 30 Td\n`;
-  streamContent += `(Generated by PropLedger - propledger.in) Tj\n`;
-  streamContent += `ET\n`;
-
-  const streamLength = Buffer.byteLength(streamContent, 'latin1');
-
-  // Build complete PDF
-  const pdfParts = [];
-  pdfParts.push('%PDF-1.4\n');
-
-  // Object 1: Catalog
-  const obj1Offset = pdfParts.join('').length;
-  pdfParts.push(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`);
-
-  // Object 2: Pages
-  const obj2Offset = pdfParts.join('').length;
-  pdfParts.push(`2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n`);
-
-  // Object 3: Page
-  const obj3Offset = pdfParts.join('').length;
-  pdfParts.push(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 ${pageHeight}] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n`);
-
-  // Object 4: Content Stream
-  const obj4Offset = pdfParts.join('').length;
-  pdfParts.push(`4 0 obj\n<< /Length ${streamLength} >>\nstream\n${streamContent}\nendstream\nendobj\n`);
-
-  // Object 5: Font
-  const obj5Offset = pdfParts.join('').length;
-  pdfParts.push(`5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n`);
-
-  // xref table
-  const xrefOffset = pdfParts.join('').length;
-  const offsets = [obj1Offset, obj2Offset, obj3Offset, obj4Offset, obj5Offset];
+  const streamLen = Buffer.byteLength(stream, 'latin1');
+  const parts = ['%PDF-1.4\n'];
+  const o1 = parts.join('').length;
+  parts.push(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`);
+  const o2 = parts.join('').length;
+  parts.push(`2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n`);
+  const o3 = parts.join('').length;
+  parts.push(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 841] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n`);
+  const o4 = parts.join('').length;
+  parts.push(`4 0 obj\n<< /Length ${streamLen} >>\nstream\n${stream}\nendstream\nendobj\n`);
+  const o5 = parts.join('').length;
+  parts.push(`5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n`);
+  const xrefOff = parts.join('').length;
   let xref = `xref\n0 6\n0000000000 65535 f \n`;
-  offsets.forEach(off => {
-    xref += String(off).padStart(10, '0') + ' 00000 n \n';
-  });
-  pdfParts.push(xref);
-  pdfParts.push(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`);
-
-  const pdfStr = pdfParts.join('');
-  return Buffer.from(pdfStr, 'latin1').toString('base64');
+  [o1, o2, o3, o4, o5].forEach(o => { xref += String(o).padStart(10,'0') + ' 00000 n \n'; });
+  parts.push(xref);
+  parts.push(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOff}\n%%EOF\n`);
+  return Buffer.from(parts.join(''), 'latin1').toString('base64');
 }

@@ -8,8 +8,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="/payment.js"></script>
-<!-- Digio Web SDK -->
-<script src="https://app.digio.in/sdk/v10/digio.js"></script>
+<!-- Surepass eSign Web SDK -->
+<script src="https://cdn.jsdelivr.net/gh/surepassio/aadhaar-esign-web-sdk@1.1.3/lib/eSignPopUp.min.js"></script>
 <style>
   :root{
     --navy:#0a0f1e;--navy-2:#0f1628;--navy-3:#141d35;--navy-4:#1a2444;
@@ -227,7 +227,7 @@
     <!-- PANEL A: Landlord needs to initiate -->
     <div id="panel-initiate" class="action-panel">
       <div class="action-title">Start eSign Process</div>
-      <div class="action-sub">Enter the tenant's email address to send them a signing link. You'll sign first, then they'll receive an email to sign.</div>
+      <div class="action-sub">Enter email addresses for both parties. We'll send each person a unique signing link via email — they verify using Aadhaar OTP on their own device.</div>
 
       <div class="how-it-works">
         <div class="hw-title">How it works</div>
@@ -253,14 +253,14 @@
           <span id="start-btn-text">Send for eSign</span>
           <div class="spinner" id="start-spinner" style="display:none;border-top-color:var(--navy)"></div>
         </button>
-        <span style="font-size:12px;color:var(--muted-2)">Powered by Digio · ISO 27001 certified</span>
+        <span style="font-size:12px;color:var(--muted-2)">Powered by Surepass · Aadhaar eSign · Legally Valid</span>
       </div>
     </div>
 
-    <!-- PANEL B: Landlord signing in progress (Digio SDK) -->
+    <!-- PANEL B: Landlord signing in progress (Surepass eSign) -->
     <div id="panel-signing" style="display:none" class="action-panel">
       <div class="action-title">✍️ Sign the Agreement</div>
-      <div class="action-sub">Click the button below to open the secure signing window. You'll verify via OTP sent to your email.</div>
+      <div class="action-sub">Signing invitations have been sent to both email addresses. The landlord signs first — click below to open the signing window now, or use the link sent to your email.</div>
       <div class="btn-row">
         <button class="btn-primary" id="sign-now-btn" onclick="openDigioSigning()">
           Open Signing Window →
@@ -326,7 +326,7 @@
   const { createClient } = supabase;
   const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  const DIGIO_ENV = 'production'; // change to 'sandbox' for testing
+  
 
   let agreement = null;
   let esignRecord = null;
@@ -555,7 +555,7 @@
 
       if (data.demo) {
         document.getElementById('panel-signing').querySelector('.action-sub').textContent =
-          'Demo mode — Digio credentials not configured yet. Click below to simulate signing.';
+          'Demo mode — Surepass credentials not configured yet. Click below to simulate signing.';
       }
 
     } catch (e) {
@@ -566,69 +566,71 @@
   }
 
   // ── OPEN DIGIO SIGNING (Web SDK) ──────────────────────────────────────────
-  function openDigioSigning() {
-    if (!digioDocumentId || !landlordAccessToken) {
+  // ── SUREPASS ESIGN POPUP ───────────────────────────────────────────────────
+  function openSurepassSigning(token, onSuccess, onError) {
+    if (!token) {
       showError('Signing session not found. Please go back and try again.');
       return;
     }
 
-    const llEmail = document.getElementById('ll-email').textContent ||
-                    document.getElementById('ll-email-input').value;
-
+    // Use Surepass Web SDK popup
     try {
-      const options = {
-        environment: DIGIO_ENV,
-        callback: handleLandlordSignCallback,
-        logo: 'https://www.propledger.in/logo.png',
-        theme: { primaryColor: '#c9a84c', secondaryColor: '#0a0f1e' },
-        is_iframe: false // opens in new tab for better UX
-      };
+      const EsignPopUpOpener = window.eSignPopUp?.default;
+      if (!EsignPopUpOpener) throw new Error('Surepass SDK not loaded');
 
-      const digio = new Digio(options);
-      digio.init();
-      digio.submit(digioDocumentId, llEmail, landlordAccessToken);
+      const esign = new EsignPopUpOpener({
+        token,
+        window_name: 'PropLedger eSign',
+        dimension: { width: '480', height: '700' }
+      });
+
+      esign.openWindow(
+        (response) => {
+          console.log('Surepass eSign success:', response);
+          onSuccess(response);
+        },
+        (response) => {
+          console.log('Surepass eSign error/closed:', response);
+          if (response.status_code === 433) {
+            // User closed popup — not an error, just show message
+            showError('Signing window was closed. Click "Sign Now" to try again.');
+          } else if (response.status_code === 403) {
+            showError('Maximum OTP attempts reached. Please try again later.');
+          } else if (response.status_code === 422) {
+            showError('You declined to sign the document.');
+          } else {
+            onError(response);
+          }
+        }
+      );
     } catch (e) {
-      console.error('Digio SDK error:', e);
-      // Fallback: open signing URL directly
-      const signUrl = `https://app.digio.in/#/gateway/login/${digioDocumentId}/${landlordAccessToken}/${encodeURIComponent(llEmail)}`;
+      console.error('Surepass SDK error:', e);
+      // Fallback: open in new tab
+      const signUrl = `https://esign-client.surepass.io/?token=${token}`;
       window.open(signUrl, '_blank');
-      // Show a "I've signed" button for fallback
       showFallbackSignedButton('landlord');
     }
   }
 
-  function openDigioTenantSigning() {
-    const params = new URLSearchParams(window.location.search);
-    const ttEmail = esignRecord?.tenant_email || params.get('email') || '';
-
-    if (!digioDocumentId || !tenantAccessToken) {
-      showError('Signing session not found. Please contact the landlord.');
-      return;
-    }
-
-    try {
-      const options = {
-        environment: DIGIO_ENV,
-        callback: handleTenantSignCallback,
-        logo: 'https://www.propledger.in/logo.png',
-        theme: { primaryColor: '#c9a84c', secondaryColor: '#0a0f1e' },
-        is_iframe: false
-      };
-
-      const digio = new Digio(options);
-      digio.init();
-      digio.submit(digioDocumentId, ttEmail, tenantAccessToken);
-    } catch (e) {
-      console.error('Digio SDK error:', e);
-      const signUrl = `https://app.digio.in/#/gateway/login/${digioDocumentId}/${tenantAccessToken}/${encodeURIComponent(ttEmail)}`;
-      window.open(signUrl, '_blank');
-      showFallbackSignedButton('tenant');
-    }
+  function openDigioSigning() {
+    // Now uses Surepass
+    openSurepassSigning(landlordAccessToken,
+      async () => await recordLandlordSigned(),
+      () => showError('Signing was not completed. Please try again.')
+    );
   }
 
-  // ── DIGIO CALLBACKS ────────────────────────────────────────────────────────
+  function openDigioTenantSigning() {
+    // Now uses Surepass
+    openSurepassSigning(tenantAccessToken,
+      async () => await recordTenantSigned(),
+      () => showError('Signing was not completed. Please try again.')
+    );
+  }
+
+  // ── SUREPASS CALLBACKS ─────────────────────────────────────────────────────
   async function handleLandlordSignCallback(response) {
-    if (response.success || response.hasOwnProperty('digio_doc_id')) {
+    if (response.success) {
       await recordLandlordSigned();
     } else {
       showError('Signing was not completed. Please try again.');
@@ -636,7 +638,7 @@
   }
 
   async function handleTenantSignCallback(response) {
-    if (response.success || response.hasOwnProperty('digio_doc_id')) {
+    if (response.success) {
       await recordTenantSigned();
     } else {
       showError('Signing was not completed. Please try again.');

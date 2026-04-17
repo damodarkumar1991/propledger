@@ -73,6 +73,16 @@ module.exports = async function handler(req, res) {
         };
         break;
 
+      // ── eSign invitation to landlord/tenant ──
+      case 'esign_invite':
+        emailPayload = {
+          from: EMAIL_FROM,
+          to,
+          subject: `Action Required: Sign your Rental Agreement on PropLedger`,
+          html: esignInviteTemplate(data)
+        };
+        break;
+
       default:
         return res.status(400).json({ error: `Unknown email type: ${type}` });
     }
@@ -255,5 +265,58 @@ function rentReminderTemplate(tenantName, amount, dueDate, property, paymentLink
     </div>
     ` : ''}
     <p style="font-size:13px;color:#8892a4;margin:0;line-height:1.6;">If you've already paid, please ignore this reminder. Contact your landlord if you have any questions.</p>
+  `);
+}
+
+function esignInviteTemplate(data) {
+  const { name, role, signingUrl, propertyAddress, otherParty } = data;
+  return emailWrapper(`
+    <h2 style="font-family:'Georgia',serif;font-size:22px;color:#f8f6f0;margin:0 0 8px;">
+      Your Signature is Required
+    </h2>
+    <p style="color:#8892a4;font-size:14px;margin:0 0 24px;">
+      You have been requested to digitally sign a Leave & License Agreement on PropLedger.
+    </p>
+
+    <div style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.25);border-radius:12px;padding:20px;margin-bottom:24px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="color:#8892a4;font-size:12px;padding:4px 0;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Your Role</td>
+          <td style="color:#f8f6f0;font-size:14px;padding:4px 0;text-align:right;">${role}</td>
+        </tr>
+        <tr>
+          <td style="color:#8892a4;font-size:12px;padding:4px 0;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Property</td>
+          <td style="color:#f8f6f0;font-size:14px;padding:4px 0;text-align:right;">${propertyAddress || 'As per agreement'}</td>
+        </tr>
+        <tr>
+          <td style="color:#8892a4;font-size:12px;padding:4px 0;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Other Party</td>
+          <td style="color:#f8f6f0;font-size:14px;padding:4px 0;text-align:right;">${otherParty || ''}</td>
+        </tr>
+      </table>
+    </div>
+
+    <p style="color:#e8e4d9;font-size:14px;line-height:1.7;margin:0 0 24px;">
+      Hi <strong>${name}</strong>, please review and sign the rental agreement using your Aadhaar number. 
+      The signing process takes less than 2 minutes and is legally valid under the IT Act, 2000.
+    </p>
+
+    <div style="text-align:center;margin:32px 0;">
+      <a href="${signingUrl}" style="display:inline-block;background:#c9a84c;color:#0a0f1e;text-decoration:none;padding:14px 36px;border-radius:10px;font-size:15px;font-weight:700;font-family:'Outfit',sans-serif;letter-spacing:0.3px;">
+        ✍️ Sign Agreement Now →
+      </a>
+    </div>
+
+    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:16px;margin-bottom:24px;">
+      <p style="color:#8892a4;font-size:12px;margin:0 0 8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">What you'll need:</p>
+      <ul style="color:#e8e4d9;font-size:13px;margin:0;padding-left:20px;line-height:2;">
+        <li>Your Aadhaar number</li>
+        <li>Mobile phone linked to your Aadhaar (for OTP)</li>
+      </ul>
+    </div>
+
+    <p style="color:#5a6478;font-size:12px;line-height:1.6;margin:0;">
+      This link is unique to you and expires in 30 days. Do not share it with anyone.
+      Powered by Surepass · NSDL Aadhaar eSign · Legally valid under IT Act 2000.
+    </p>
   `);
 }
