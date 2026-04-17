@@ -1153,6 +1153,56 @@
   function showError(msg) { const e = document.getElementById('error-box'); e.textContent = msg; e.classList.add('show'); window.scrollTo({top:0,behavior:'smooth'}); }
   function hideError() { document.getElementById('error-box').classList.remove('show'); }
 
+  // ── AUTO-FILL FROM PROFILE ────────────────────────────────────────────────
+  (async () => {
+    try {
+      const SUPABASE_URL = 'https://plumsrlhachflnsmwpsh.supabase.co';
+      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsdW1zcmxoYWNoZmxuc213cHNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMwNzcwODUsImV4cCI6MjA1ODY1MzA4NX0.7cPNnDMSNnPn2WVDwVVz4l_EteP_eFPcJFxCiCHF_xA';
+      const sbLocal = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const { data: { user } } = await sbLocal.auth.getUser();
+      if (!user) return;
+
+      const { data: p } = await sbLocal.from('profiles')
+        .select('*').eq('id', user.id).maybeSingle();
+      if (!p) return;
+
+      // Auto-fill landlord fields
+      if (p.full_name && document.getElementById('landlordName'))
+        document.getElementById('landlordName').value = p.full_name;
+      if (p.pan && document.getElementById('landlordPAN'))
+        document.getElementById('landlordPAN').value = p.pan;
+      if (p.aadhaar_last4 && document.getElementById('landlordAadhaar'))
+        document.getElementById('landlordAadhaar').value = p.aadhaar_last4;
+
+      // Build full address for landlord
+      if (document.getElementById('landlordAddress')) {
+        const addrParts = [p.address_line1, p.address_line2, p.city, p.state, p.pincode].filter(Boolean);
+        if (addrParts.length > 0)
+          document.getElementById('landlordAddress').value = addrParts.join(', ');
+      }
+
+      // Execution place defaults to landlord city
+      if (p.city && document.getElementById('executionPlace') && !document.getElementById('executionPlace').value)
+        document.getElementById('executionPlace').value = p.city;
+
+      // Agreement preferences
+      if (p.notice_period && document.getElementById('noticePeriod'))
+        document.getElementById('noticePeriod').value = p.notice_period;
+      if (p.lock_in_period && document.getElementById('lockInPeriod'))
+        document.getElementById('lockInPeriod').value = p.lock_in_period;
+      if (p.payment_due_day && document.getElementById('rentDueDay'))
+        document.getElementById('rentDueDay').value = p.payment_due_day;
+      if (p.utilities && document.getElementById('electricityCharges'))
+        document.getElementById('electricityCharges').value = p.utilities;
+      if (p.security_deposit && document.getElementById('securityDeposit'))
+        document.getElementById('securityDeposit').value = p.security_deposit;
+
+      console.log('Profile auto-filled:', p.full_name);
+    } catch(e) {
+      console.log('Profile auto-fill skipped:', e.message);
+    }
+  })();
+
   function numberToWords(num) {
     if (!num || isNaN(num)) return '';
     const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
