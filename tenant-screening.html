@@ -630,6 +630,15 @@
     };
 
     // ── PAYMENT GATE ──────────────────────────────────────
+    // If payment.js not loaded, proceed directly (dev/testing mode)
+    if (!window.PropLedgerPayment) {
+      console.warn('payment.js not loaded — skipping payment gate');
+      showSubPanel('step-verify');
+      setStep(2);
+      await runChecks(tenantData);
+      return;
+    }
+
     await window.PropLedgerPayment.charge(
       'screening',
       {

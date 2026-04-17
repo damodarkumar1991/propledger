@@ -455,14 +455,26 @@
 
     // ── PAYMENT GATE ──────────────────────────────────────────────────────
     // Check if already paid for this agreement
-    const { data: existingPayment } = await sb.from('payments')
-      .select('id')
-      .eq('agreement_id', agreement.id)
-      .eq('type', 'esign')
-      .eq('status', 'paid')
-      .maybeSingle();
+    let existingPayment = null;
+    try {
+      const { data } = await sb.from('payments')
+        .select('id')
+        .eq('agreement_id', agreement.id)
+        .eq('type', 'esign')
+        .eq('status', 'paid')
+        .maybeSingle();
+      existingPayment = data;
+    } catch(e) {
+      console.log('Payments table check failed (may not exist yet):', e.message);
+    }
 
     if (!existingPayment) {
+      // Check payment.js is loaded
+      if (!window.PropLedgerPayment) {
+        console.warn('payment.js not loaded — skipping payment gate');
+        await _doESign(llEmail, ttEmail);
+        return;
+      }
       // Need to pay first
       await window.PropLedgerPayment.charge(
         'esign',
