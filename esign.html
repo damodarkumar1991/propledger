@@ -260,12 +260,25 @@
     <!-- PANEL B: Landlord signing in progress (Surepass eSign) -->
     <div id="panel-signing" style="display:none" class="action-panel">
       <div class="action-title">✍️ Sign the Agreement</div>
-      <div class="action-sub">Signing invitations have been sent to both email addresses. The landlord signs first — click below to open the signing window now, or use the link sent to your email.</div>
+      <div class="action-sub">Signing invitations have been sent to both email addresses. Click the button below to sign now — it will open in a new tab.</div>
+
+      <div style="background:rgba(45,212,160,0.05);border:1px solid rgba(45,212,160,0.15);border-radius:10px;padding:14px 16px;margin-bottom:20px;">
+        <div style="font-size:12px;color:var(--green);font-weight:600;margin-bottom:4px;">📧 Emails sent</div>
+        <div style="font-size:13px;color:var(--muted);">Both parties received their signing links. They can sign from any device.</div>
+      </div>
+
       <div class="btn-row">
-        <button class="btn-primary" id="sign-now-btn" onclick="openDigioSigning()">
-          Open Signing Window →
+        <a id="sign-now-link" href="#" target="_blank" class="btn-primary" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px" onclick="handleLandlordSignClick(event)">
+          ✍️ Sign Now (Landlord) →
+        </a>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--muted-2);">Opens in a new tab · Aadhaar OTP verification</div>
+
+      <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border)">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Already signed? Click to confirm and continue:</div>
+        <button class="btn-outline" onclick="recordLandlordSigned()" style="font-size:13px;">
+          ✓ I've signed — continue
         </button>
-        <span style="font-size:12px;color:var(--muted-2)">A new window will open</span>
       </div>
     </div>
 
@@ -289,14 +302,19 @@
       <div class="action-title">Tenant — Sign Agreement</div>
       <div class="action-sub">The landlord has already signed. Please review and sign the agreement to complete the process.</div>
       <div class="how-it-works">
-        <div class="hw-step"><div class="hw-num">1</div><span>Click below to open the secure signing window</span></div>
-        <div class="hw-step"><div class="hw-num">2</div><span>Verify via OTP sent to your email</span></div>
+        <div class="hw-step"><div class="hw-num">1</div><span>Click below to open the signing page in a new tab</span></div>
+        <div class="hw-step"><div class="hw-num">2</div><span>Enter your Aadhaar number and verify with OTP</span></div>
         <div class="hw-step"><div class="hw-num">3</div><span>Both parties receive the signed PDF</span></div>
       </div>
       <div class="btn-row" style="margin-top:8px">
-        <button class="btn-primary" onclick="openDigioTenantSigning()">
-          ✍️ Sign Now →
-        </button>
+        <a id="tenant-sign-link" href="#" target="_blank" class="btn-primary" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px">
+          ✍️ Sign Now (Tenant) →
+        </a>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--muted-2);">Opens in a new tab · Aadhaar OTP verification</div>
+      <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border)">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Already signed?</div>
+        <button class="btn-outline" onclick="recordTenantSigned()" style="font-size:13px;">✓ I've signed — complete</button>
       </div>
     </div>
 
@@ -549,13 +567,23 @@
       document.getElementById('ll-email').textContent = llEmail;
       document.getElementById('tt-email').textContent = ttEmail;
 
+      // Set direct sign links on the anchor tags — no popup, no async, just href
+      if (data.landlordSignUrl) {
+        const lLink = document.getElementById('sign-now-link');
+        if (lLink) lLink.href = data.landlordSignUrl;
+      }
+      if (data.tenantSignUrl) {
+        const tLink = document.getElementById('tenant-sign-link');
+        if (tLink) tLink.href = data.tenantSignUrl;
+      }
+
       // Move to signing panel
       showPanel('panel-signing');
       setBtn('start-btn', 'start-btn-text', 'start-spinner', false, 'Send for eSign');
 
       if (data.demo) {
         document.getElementById('panel-signing').querySelector('.action-sub').textContent =
-          'Demo mode — Surepass credentials not configured yet. Click below to simulate signing.';
+          'Demo mode — Surepass credentials not configured yet.';
       }
 
     } catch (e) {
@@ -565,67 +593,28 @@
     }
   }
 
-  // ── OPEN DIGIO SIGNING (Web SDK) ──────────────────────────────────────────
-  // ── SUREPASS ESIGN POPUP ───────────────────────────────────────────────────
-  function openSurepassSigning(token, onSuccess, onError) {
-    if (!token) {
-      showError('Signing session not found. Please go back and try again.');
-      return;
-    }
+  // ── SUREPASS SIGN HANDLERS ────────────────────────────────────────────────
+  // Direct link approach — no popup (popup blocked by browsers due to async chain)
+  // Links are set directly on <a> tags with target="_blank"
 
-    // Use Surepass Web SDK popup
-    try {
-      const EsignPopUpOpener = window.eSignPopUp?.default;
-      if (!EsignPopUpOpener) throw new Error('Surepass SDK not loaded');
-
-      const esign = new EsignPopUpOpener({
-        token,
-        window_name: 'PropLedger eSign',
-        dimension: { width: '480', height: '700' }
-      });
-
-      esign.openWindow(
-        (response) => {
-          console.log('Surepass eSign success:', response);
-          onSuccess(response);
-        },
-        (response) => {
-          console.log('Surepass eSign error/closed:', response);
-          if (response.status_code === 433) {
-            // User closed popup — not an error, just show message
-            showError('Signing window was closed. Click "Sign Now" to try again.');
-          } else if (response.status_code === 403) {
-            showError('Maximum OTP attempts reached. Please try again later.');
-          } else if (response.status_code === 422) {
-            showError('You declined to sign the document.');
-          } else {
-            onError(response);
-          }
-        }
-      );
-    } catch (e) {
-      console.error('Surepass SDK error:', e);
-      // Fallback: open in new tab
-      const signUrl = `https://esign-client.surepass.app/?token=${token}`;
-      window.open(signUrl, '_blank');
-      showFallbackSignedButton('landlord');
-    }
+  function handleLandlordSignClick(e) {
+    // Link is already set on the href — just let it open naturally
+    // This is called from onclick just to record the click
+    console.log('Landlord opening sign page:', landlordAccessToken);
   }
 
   function openDigioSigning() {
-    // Now uses Surepass
-    openSurepassSigning(landlordAccessToken,
-      async () => await recordLandlordSigned(),
-      () => showError('Signing was not completed. Please try again.')
-    );
+    // Direct link — open in new tab
+    const url = document.getElementById('sign-now-link')?.href;
+    if (url && url !== '#') window.open(url, '_blank');
+    else showError('Sign link not ready. Please try again.');
   }
 
   function openDigioTenantSigning() {
-    // Now uses Surepass
-    openSurepassSigning(tenantAccessToken,
-      async () => await recordTenantSigned(),
-      () => showError('Signing was not completed. Please try again.')
-    );
+    // Direct link — open in new tab
+    const url = document.getElementById('tenant-sign-link')?.href;
+    if (url && url !== '#') window.open(url, '_blank');
+    else showError('Sign link not ready. Please try again.');
   }
 
   // ── SUREPASS CALLBACKS ─────────────────────────────────────────────────────
