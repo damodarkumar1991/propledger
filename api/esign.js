@@ -149,8 +149,8 @@ module.exports = async function handler(req, res) {
         console.error('Tenant init error (non-fatal):', err.response?.data || err.message);
       }
 
-      const landlordSignUrl = `https://esign-client.surepass.io/?token=${landlordToken}`;
-      const tenantSignUrl = tenantToken ? `https://esign-client.surepass.io/?token=${tenantToken}` : null;
+      const landlordSignUrl = `https://esign-client.surepass.app/?token=${landlordToken}`;
+      const tenantSignUrl = tenantToken ? `https://esign-client.surepass.app/?token=${tenantToken}` : null;
 
       // Step 3: Email both parties
       try {

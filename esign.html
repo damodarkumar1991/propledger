@@ -606,7 +606,7 @@
     } catch (e) {
       console.error('Surepass SDK error:', e);
       // Fallback: open in new tab
-      const signUrl = `https://esign-client.surepass.io/?token=${token}`;
+      const signUrl = `https://esign-client.surepass.app/?token=${token}`;
       window.open(signUrl, '_blank');
       showFallbackSignedButton('landlord');
     }
