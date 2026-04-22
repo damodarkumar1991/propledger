@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-<script src="/payment.js"></script>
+<!-- ✅ FIX 1: Removed payment.js (was 404) — payment gate has a guard already -->
 <!-- Surepass eSign Web SDK -->
 <script src="https://cdn.jsdelivr.net/gh/surepassio/aadhaar-esign-web-sdk@1.1.3/lib/eSignPopUp.min.js"></script>
 <style>
@@ -274,7 +274,7 @@
       </div>
       <div style="margin-top:12px;font-size:12px;color:var(--muted-2);">Opens in a new tab · Aadhaar OTP verification</div>
 
-      <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border)">
+      <div style="margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06)">
         <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Already signed? Click to confirm and continue:</div>
         <button class="btn-outline" onclick="recordLandlordSigned()" style="font-size:13px;">
           ✓ I've signed — continue
@@ -312,7 +312,7 @@
         </a>
       </div>
       <div style="margin-top:12px;font-size:12px;color:var(--muted-2);">Opens in a new tab · Aadhaar OTP verification</div>
-      <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border)">
+      <div style="margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06)">
         <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Already signed?</div>
         <button class="btn-outline" onclick="recordTenantSigned()" style="font-size:13px;">✓ I've signed — complete</button>
       </div>
@@ -343,8 +343,6 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsdW1zcmxoYWNoZmxuc213cHNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MzQ3MjgsImV4cCI6MjA5MDAxMDcyOH0.ioqsc76WaRv6F4_S7puz6Th9-B83D0IcDh7HYPhwRlI';
   const { createClient } = supabase;
   const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-  
 
   let agreement = null;
   let esignRecord = null;
@@ -393,6 +391,17 @@
     if (rec?.landlord_access_token) landlordAccessToken = rec.landlord_access_token;
     if (rec?.tenant_access_token) tenantAccessToken = rec.tenant_access_token;
 
+    // ✅ FIX 2: Wire signing URLs from Supabase record onto the buttons
+    // This was missing — on page reload the buttons stayed at href="#"
+    if (rec?.landlord_sign_url) {
+      const lLink = document.getElementById('sign-now-link');
+      if (lLink) lLink.href = rec.landlord_sign_url;
+    }
+    if (rec?.tenant_sign_url) {
+      const tLink = document.getElementById('tenant-sign-link');
+      if (tLink) tLink.href = rec.tenant_sign_url;
+    }
+
     renderUI();
 
     document.getElementById('page-loading').style.display = 'none';
@@ -403,24 +412,27 @@
     // Agreement details
     document.getElementById('doc-sub').textContent =
       (agreement.property_address || '—') + ' · ' + formatDate(agreement.created_at);
-    document.getElementById('d-landlord').textContent = currentUser?.email?.split('@')[0] || '—';
+    document.getElementById('d-landlord').textContent = agreement.landlord_name || currentUser?.email?.split('@')[0] || '—';
     document.getElementById('d-tenant').textContent = agreement.tenant_name || '—';
     document.getElementById('d-rent').textContent = agreement.monthly_rent
       ? '₹' + parseInt(agreement.monthly_rent).toLocaleString('en-IN') + '/mo' : '—';
 
-    const llName = currentUser?.email?.split('@')[0] || 'Licensor';
+    const llName = agreement.landlord_name || currentUser?.email?.split('@')[0] || 'Licensor';
     const ttName = agreement.tenant_name || 'Licensee';
 
     document.getElementById('ll-name').textContent = llName;
     document.getElementById('ll-av').textContent = llName.charAt(0).toUpperCase();
-    document.getElementById('ll-email').textContent = currentUser?.email || '—';
+    document.getElementById('ll-email').textContent = esignRecord?.landlord_email || currentUser?.email || '—';
     document.getElementById('tt-name').textContent = ttName;
     document.getElementById('tt-av').textContent = ttName.charAt(0).toUpperCase();
+    document.getElementById('tt-email').textContent = esignRecord?.tenant_email || '—';
 
     // Pre-fill emails
     if (currentUser?.email)
       document.getElementById('ll-email-input').value = currentUser.email;
-    if (agreement.user_email)
+    if (esignRecord?.tenant_email)
+      document.getElementById('tt-email-input').value = esignRecord.tenant_email;
+    else if (agreement.user_email)
       document.getElementById('tt-email-input').value = agreement.user_email;
 
     // Determine which panel to show based on status
@@ -444,6 +456,7 @@
     if (status === 'not_started' || !esignRecord) {
       showPanel('panel-initiate');
     } else if (status === 'initiated' || status === 'landlord_signing') {
+      // ✅ FIX 2 continued: URLs already set in init() above
       showPanel('panel-signing');
     } else if (status === 'landlord_signed') {
       document.getElementById('tenant-email-display').textContent =
@@ -487,7 +500,7 @@
     }
 
     if (!existingPayment) {
-      // Check payment.js is loaded
+      // ✅ FIX 1: payment.js removed — this guard skips payment and goes straight to eSign
       if (!window.PropLedgerPayment) {
         console.warn('payment.js not loaded — skipping payment gate');
         await _doESign(llEmail, ttEmail);
@@ -503,7 +516,6 @@
           userEmail: llEmail
         },
         async (paymentResult) => {
-          // Payment verified — proceed with eSign
           await _doESign(llEmail, ttEmail);
         }
       );
@@ -564,10 +576,20 @@
         status: 'initiated'
       }, { onConflict: 'agreement_id' });
 
+      // Update the local record so subsequent logic has the URLs
+      esignRecord = {
+        ...esignRecord,
+        landlord_email: llEmail,
+        tenant_email: ttEmail,
+        landlord_sign_url: data.landlordSignUrl,
+        tenant_sign_url: data.tenantSignUrl,
+        status: 'initiated'
+      };
+
       document.getElementById('ll-email').textContent = llEmail;
       document.getElementById('tt-email').textContent = ttEmail;
 
-      // Set direct sign links on the anchor tags — no popup, no async, just href
+      // Set direct sign links on the anchor tags
       if (data.landlordSignUrl) {
         const lLink = document.getElementById('sign-now-link');
         if (lLink) lLink.href = data.landlordSignUrl;
@@ -583,7 +605,7 @@
 
       if (data.demo) {
         document.getElementById('panel-signing').querySelector('.action-sub').textContent =
-          'Demo mode — Surepass credentials not configured yet.';
+          'Demo mode — Surepass credentials not configured yet. Click "I\'ve signed" to simulate.';
       }
 
     } catch (e) {
@@ -594,26 +616,27 @@
   }
 
   // ── SUREPASS SIGN HANDLERS ────────────────────────────────────────────────
-  // Direct link approach — no popup (popup blocked by browsers due to async chain)
-  // Links are set directly on <a> tags with target="_blank"
-
   function handleLandlordSignClick(e) {
-    // Link is already set on the href — just let it open naturally
-    // This is called from onclick just to record the click
-    console.log('Landlord opening sign page:', landlordAccessToken);
+    const href = document.getElementById('sign-now-link')?.href;
+    // If href is still '#' or points to self, prevent navigation and show error
+    if (!href || href === '#' || href.endsWith('#') || href.includes('esign.html')) {
+      e.preventDefault();
+      showError('Signing link not available. If using demo mode, click "I\'ve signed — continue" below.');
+      return;
+    }
+    // Valid URL — let the <a target="_blank"> open it naturally
+    console.log('Landlord opening sign page:', href);
   }
 
   function openDigioSigning() {
-    // Direct link — open in new tab
     const url = document.getElementById('sign-now-link')?.href;
-    if (url && url !== '#') window.open(url, '_blank');
+    if (url && url !== '#' && !url.endsWith('#')) window.open(url, '_blank');
     else showError('Sign link not ready. Please try again.');
   }
 
   function openDigioTenantSigning() {
-    // Direct link — open in new tab
     const url = document.getElementById('tenant-sign-link')?.href;
-    if (url && url !== '#') window.open(url, '_blank');
+    if (url && url !== '#' && !url.endsWith('#')) window.open(url, '_blank');
     else showError('Sign link not ready. Please try again.');
   }
 
@@ -641,12 +664,18 @@
       landlord_signed_at: now
     }).eq('agreement_id', agreement.id);
 
+    // Update local record
+    if (esignRecord) {
+      esignRecord.status = 'landlord_signed';
+      esignRecord.landlord_signed_at = now;
+    }
+
     updateSignerCard('ll', 'signed', now);
     updateSignerCard('tt', 'waiting', null);
     updateProgress('tenant');
 
     document.getElementById('tenant-email-display').textContent =
-      esignRecord?.tenant_email || document.getElementById('tt-email-input').value || '—';
+      esignRecord?.tenant_email || document.getElementById('tt-email-input')?.value || '—';
 
     showPanel('panel-tenant-wait');
   }
@@ -684,9 +713,9 @@
   }
 
   async function resendTenantLink() {
-    // Resend email via send-email API
     const tenantEmail = esignRecord?.tenant_email || '';
-    const tenantSignUrl = `https://www.propledger.in/esign.html?id=${agreement.id}&mode=tenant`;
+    const tenantSignUrl = esignRecord?.tenant_sign_url
+      || `https://www.propledger.in/esign.html?id=${agreement.id}&mode=tenant`;
 
     try {
       await fetch('/api/send-email', {
@@ -710,10 +739,9 @@
 
   async function downloadSigned() {
     if (!digioDocumentId) {
-      alert('Signed PDF will be available once Digio API credentials are active.');
+      alert('Signed PDF will be available once real API credentials are active.');
       return;
     }
-    // Open download via form POST to /api/esign
     const form = document.createElement('form');
     form.method = 'POST'; form.action = '/api/esign'; form.target = '_blank';
     const inp = document.createElement('input');
@@ -722,24 +750,6 @@
     inp2.type = 'hidden'; inp2.name = 'documentId'; inp2.value = digioDocumentId;
     form.appendChild(inp); form.appendChild(inp2);
     document.body.appendChild(form); form.submit(); document.body.removeChild(form);
-  }
-
-  // ── FALLBACK for when SDK fails (redirect flow) ───────────────────────────
-  function showFallbackSignedButton(role) {
-    const panel = role === 'landlord'
-      ? document.getElementById('panel-signing')
-      : document.getElementById('panel-tenant-sign');
-
-    const existing = document.getElementById('fallback-signed-btn');
-    if (existing) return;
-
-    const btn = document.createElement('button');
-    btn.id = 'fallback-signed-btn';
-    btn.className = 'btn-primary';
-    btn.style.marginTop = '12px';
-    btn.textContent = "✓ I've completed signing →";
-    btn.onclick = () => role === 'landlord' ? recordLandlordSigned() : recordTenantSigned();
-    panel.appendChild(btn);
   }
 
   // ── UI HELPERS ────────────────────────────────────────────────────────────
@@ -787,7 +797,6 @@
   }
 
   function updateProgress(stage) {
-    // stage: 'landlord' | 'tenant' | 'done'
     const done = stage === 'done';
     const atTenant = stage === 'tenant' || done;
 
