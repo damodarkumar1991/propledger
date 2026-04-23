@@ -7,7 +7,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-<!-- ✅ FIX 1: Removed payment.js (was 404) — payment gate has a guard already -->
+<!-- ✅ payment.js must be in PROJECT ROOT (not api/ folder) -->
+<script src="/payment.js"></script>
 <!-- Surepass eSign Web SDK -->
 <script src="https://cdn.jsdelivr.net/gh/surepassio/aadhaar-esign-web-sdk@1.1.3/lib/eSignPopUp.min.js"></script>
 <style>
@@ -564,8 +565,8 @@
 
       // Save to Supabase
       digioDocumentId = data.documentId;
-      landlordAccessToken = data.landlordAccessToken;
-      tenantAccessToken = data.tenantAccessToken;
+      landlordAccessToken = data.landlordToken;    // ✅ matches backend field name
+      tenantAccessToken = data.tenantToken;         // ✅ matches backend field name
 
       await sb.from('esign_records').upsert({
         agreement_id: agreement.id,
@@ -574,8 +575,8 @@
         tenant_email: ttEmail,
         tenant_name: agreement.tenant_name,
         digio_document_id: data.documentId,
-        landlord_access_token: data.landlordAccessToken,
-        tenant_access_token: data.tenantAccessToken,
+        landlord_access_token: data.landlordToken,  // ✅ was data.landlordAccessToken
+        tenant_access_token: data.tenantToken,       // ✅ was data.tenantAccessToken
         landlord_sign_url: data.landlordSignUrl,
         tenant_sign_url: data.tenantSignUrl,
         status: 'initiated'
