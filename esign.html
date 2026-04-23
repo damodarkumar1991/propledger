@@ -276,9 +276,14 @@
 
       <div style="margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06)">
         <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Already signed? Click to confirm and continue:</div>
-        <button class="btn-outline" onclick="recordLandlordSigned()" style="font-size:13px;">
-          ✓ I've signed — continue
-        </button>
+        <div class="btn-row">
+          <button class="btn-outline" onclick="recordLandlordSigned()" style="font-size:13px;">
+            ✓ I've signed — continue
+          </button>
+          <button class="btn-outline" onclick="reInitializeESign()" id="reinit-btn" style="font-size:13px;">
+            🔄 Session expired? Re-send
+          </button>
+        </div>
       </div>
     </div>
 
@@ -632,6 +637,45 @@
     const url = document.getElementById('sign-now-link')?.href;
     if (url && url !== '#' && !url.endsWith('#')) window.open(url, '_blank');
     else showError('Sign link not ready. Please try again.');
+  }
+
+  // ── RE-INITIALIZE (expired Surepass session) ──────────────────────────────
+  async function reInitializeESign() {
+    const btn = document.getElementById('reinit-btn');
+    btn.textContent = '🔄 Re-sending...';
+    btn.disabled = true;
+    hideError();
+
+    try {
+      // Save emails before deleting
+      const savedLlEmail = esignRecord?.landlord_email || currentUser?.email || '';
+      const savedTtEmail = esignRecord?.tenant_email || agreement.user_email || '';
+
+      // Delete old esign record so upsert creates a fresh one
+      await sb.from('esign_records').delete().eq('agreement_id', agreement.id);
+      esignRecord = null;
+
+      const llEmail = savedLlEmail || document.getElementById('ll-email-input')?.value?.trim();
+      const ttEmail = savedTtEmail || document.getElementById('tt-email-input')?.value?.trim();
+
+      if (!llEmail || !ttEmail) {
+        // Fall back to initiate panel so user can re-enter emails
+        showPanel('panel-initiate');
+        btn.textContent = '🔄 Session expired? Re-send';
+        btn.disabled = false;
+        return;
+      }
+
+      // Create fresh Surepass session
+      await _doESign(llEmail, ttEmail);
+      btn.textContent = '🔄 Session expired? Re-send';
+      btn.disabled = false;
+    } catch (e) {
+      console.error('Re-init failed:', e);
+      showError('Could not re-initialize. Try going back and starting again.');
+      btn.textContent = '🔄 Session expired? Re-send';
+      btn.disabled = false;
+    }
   }
 
   function openDigioTenantSigning() {
