@@ -118,6 +118,7 @@ module.exports = async function handler(req, res) {
 
       console.log('Initializing eSign for landlord:', landlordEmail);
       let landlordToken = null;
+      let landlordUrl = null;
       try {
         const r = await axios.post(
           `${SUREPASS_BASE}/api/v1/esign/initialize`,
@@ -126,7 +127,7 @@ module.exports = async function handler(req, res) {
         );
         console.log('Landlord init:', JSON.stringify(r.data));
         landlordToken = r.data?.data?.client_id;
-        const landlordUrl = r.data?.data?.url;
+        landlordUrl = r.data?.data?.url;
         if (!landlordToken) throw new Error(r.data?.message || 'No client_id in response');
       } catch (err) {
         const e = err.response?.data || { message: err.message };
@@ -136,6 +137,7 @@ module.exports = async function handler(req, res) {
 
       console.log('Initializing eSign for tenant:', tenantEmail);
       let tenantToken = null;
+      let tenantUrl = null;
       try {
         const r = await axios.post(
           `${SUREPASS_BASE}/api/v1/esign/initialize`,
@@ -144,7 +146,7 @@ module.exports = async function handler(req, res) {
         );
         console.log('Tenant init:', JSON.stringify(r.data));
         tenantToken = r.data?.data?.client_id;
-        const tenantUrl = r.data?.data?.url;
+        tenantUrl = r.data?.data?.url;
       } catch (err) {
         console.error('Tenant init error (non-fatal):', err.response?.data || err.message);
       }
