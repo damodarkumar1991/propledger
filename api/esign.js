@@ -65,7 +65,7 @@ module.exports = async function handler(req, res) {
 
     // Step 1: Upload PDF to Supabase Storage, get a public URL
       const { createClient } = require('@supabase/supabase-js');
-      const sbAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+      const sbAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
       const pdfBuffer = Buffer.from(pdfBase64, 'base64');
       const fileName = `esign_${agreementId || Date.now()}.pdf`;
 
