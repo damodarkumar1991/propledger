@@ -11,9 +11,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const SUREPASS_TOKEN = process.env.SUREPASS_TOKEN;
-  const SUREPASS_BASE  = process.env.SUREPASS_ENV === 'production'
-    ? 'https://kyc-api.surepass.io'
-    : 'https://sandbox.surepass.app';
+  const SUREPASS_BASE = 'https://kyc-api.surepass.app';
 
   const headers = {
     'Authorization': `Bearer ${SUREPASS_TOKEN}`,
