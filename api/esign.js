@@ -59,6 +59,11 @@ module.exports = async function handler(req, res) {
         title: agreementTitle || 'Leave & License Agreement',
         landlordName, tenantName, propertyAddress, monthlyRent
       });
+      // Count pages in the generated PDF
+      const { PDFDocument } = require('pdf-lib');
+      const pdfDoc = await PDFDocument.load(Buffer.from(pdfBase64, 'base64'));
+      const totalPages = pdfDoc.getPageCount();
+      console.log('PDF has', totalPages, 'pages');
 
       const BASE_URL = 'https://www.propledger.in';
       const redirectUrl = `${BASE_URL}/esign.html?id=${agreementId}&signed=true`;
@@ -87,7 +92,14 @@ module.exports = async function handler(req, res) {
 
       // Step 2: Initialize eSign for each signer
       // Correct payload based on Surepass actual API spec
-      const makePayload = (name, email, xPos) => ({
+       const makePayload = (name, email, xPos) => {
+        // Build positions for ALL pages
+        const positions = {};
+        for (let p = 1; p <= totalPages; p++) {
+          positions[p] = [{ x: xPos, y: 50, width: 180, height: 50 }];
+        }
+
+        return {
         pdf_pre_uploaded: true,
         expiry_minutes: 10080, // 7 days
         sign_type: 'aadhaar',
@@ -103,15 +115,15 @@ module.exports = async function handler(req, res) {
           stamp_paper_state: '',
           stamp_data: {},
           auth_mode: 1,
-          positions: {
-            1: [{ x: xPos, y: 100, width: 200, height: 60 }]
-          }
+          positions: positions
+          
         },
         prefill_options: {
           full_name: name || '',
           user_email: email
         }
-      });
+      };
+    };
 
       console.log('Initializing eSign for landlord:', landlordEmail);
       let landlordToken = null;
