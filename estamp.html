@@ -918,7 +918,10 @@
         const data = await res.json();
 
         if (!res.ok || !data.success) {
-          throw new Error(data.error || data.details || 'Order failed');
+          const errMsg = data.details
+            ? `${data.error}: ${typeof data.details === 'string' ? data.details : JSON.stringify(data.details)}`
+            : (data.error || 'Order failed');
+          throw new Error(errMsg);
         }
 
         stampClientId = data.client_id;

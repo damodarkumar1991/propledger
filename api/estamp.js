@@ -93,29 +93,49 @@ async function orderStamp(req, res) {
   }
 
   // Call Surepass stamper-v2
-  const surepassRes = await fetch(`${SUREPASS_BASE}/api/v1/stamper-v2/order-stamp`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${SUREPASS_TOKEN}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      first_party,
-      second_party,
-      state,
-      article_id: Number(article_id),
-      amount: Number(amount),
-      consideration_amount: Number(consideration_amount || amount)
-    })
-  });
+  let surepassData;
+  try {
+    const surepassRes = await fetch(`${SUREPASS_BASE}/api/v1/stamper-v2/order-stamp`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SUREPASS_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        first_party,
+        second_party,
+        state,
+        article_id: Number(article_id),
+        amount: Number(amount),
+        consideration_amount: Number(consideration_amount || amount)
+      })
+    });
 
-  const surepassData = await surepassRes.json();
-  console.log('Surepass order-stamp response:', JSON.stringify(surepassData));
+    const rawText = await surepassRes.text();
+    console.log('Surepass raw response:', surepassRes.status, rawText);
 
-  if (!surepassRes.ok || !surepassData.data) {
-    return res.status(400).json({
-      error: 'Surepass eStamp order failed',
-      details: surepassData.message || surepassData
+    try {
+      surepassData = JSON.parse(rawText);
+    } catch (parseErr) {
+      return res.status(400).json({
+        error: 'Surepass returned non-JSON response',
+        details: rawText.substring(0, 500),
+        status_code: surepassRes.status
+      });
+    }
+
+    if (!surepassRes.ok || !surepassData.data) {
+      return res.status(400).json({
+        error: 'Surepass eStamp order failed',
+        details: surepassData.message || JSON.stringify(surepassData),
+        status_code: surepassData.status_code,
+        surepass_full: surepassData
+      });
+    }
+  } catch (fetchErr) {
+    return res.status(500).json({
+      error: 'Failed to call Surepass API',
+      details: fetchErr.message
     });
   }
 
