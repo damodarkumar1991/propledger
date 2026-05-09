@@ -8,7 +8,7 @@ const SUREPASS_TOKEN = process.env.SUREPASS_TOKEN;
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 // Indian states with eStamp support and common article IDs
