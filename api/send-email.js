@@ -270,7 +270,7 @@ function rentReminderTemplate(tenantName, amount, dueDate, property, paymentLink
 
 function esignInviteTemplate(data) {
   const { name, role, signingUrl, propertyAddress, otherParty } = data;
-  return emailWrapper(`
+  return baseLayout(`
     <h2 style="font-family:'Georgia',serif;font-size:22px;color:#f8f6f0;margin:0 0 8px;">
       Your Signature is Required
     </h2>
