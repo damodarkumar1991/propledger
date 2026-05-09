@@ -126,6 +126,7 @@ module.exports = async function handler(req, res) {
         );
         console.log('Landlord init:', JSON.stringify(r.data));
         landlordToken = r.data?.data?.client_id;
+        const landlordUrl = r.data?.data?.url;
         if (!landlordToken) throw new Error(r.data?.message || 'No client_id in response');
       } catch (err) {
         const e = err.response?.data || { message: err.message };
@@ -143,12 +144,13 @@ module.exports = async function handler(req, res) {
         );
         console.log('Tenant init:', JSON.stringify(r.data));
         tenantToken = r.data?.data?.client_id;
+        const tenantUrl = r.data?.data?.url;
       } catch (err) {
         console.error('Tenant init error (non-fatal):', err.response?.data || err.message);
       }
 
-      const landlordSignUrl = `https://esign-client.surepass.app/?token=${landlordToken}`;
-      const tenantSignUrl = tenantToken ? `https://esign-client.surepass.app/?token=${tenantToken}` : null;
+      const landlordSignUrl = landlordUrl || `https://esign-client.surepass.app/?token=${landlordToken}`;
+      const tenantSignUrl = tenantUrl || (tenantToken ? `https://esign-client.surepass.app/?token=${tenantToken}` : null);
 
       // Step 3: Email both parties
       try {
