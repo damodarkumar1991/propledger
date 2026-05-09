@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>eStamp Paper — PropLedger</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --pl-bg: #FAFAF7;
+      --pl-surface: #FFFFFF;
+      --pl-border: #E8E6DE;
+      --pl-text: #1A1A18;
+      --pl-muted: #6B6B63;
+      --pl-primary: #2D6A4F;
+      --pl-primary-light: #E8F5EE;
+      --pl-primary-dark: #1B4332;
+      --pl-accent: #D4A373;
+      --pl-accent-light: #FFF3E6;
+      --pl-danger: #C1392B;
+      --pl-danger-light: #FDECEA;
+      --pl-warning: #E67E22;
+      --pl-warning-light: #FEF5E7;
+      --pl-success: #27AE60;
+      --pl-success-light: #E8F8F0;
+      --pl-radius: 12px;
+      --pl-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --pl-shadow-lg: 0 10px 25px rgba(0,0,0,0.08);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--pl-bg);
+      color: var(--pl-text);
+      min-height: 100vh;
+    }
+
+    /* ── NAV ─────────────────────────────── */
+    .nav {
+      background: var(--pl-surface);
+      border-bottom: 1px solid var(--pl-border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-logo {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--pl-primary);
+      text-decoration: none;
+    }
+    .nav-logo span { color: var(--pl-accent); }
+    .nav-links { display: flex; gap: 16px; align-items: center; }
+    .nav-links a {
+      color: var(--pl-muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--pl-primary); }
+
+    /* ── MAIN ────────────────────────────── */
+    .container {
+      max-width: 680px;
+      margin: 32px auto;
+      padding: 0 20px;
+    }
+
+    .page-header {
+      margin-bottom: 28px;
+    }
+    .page-header h1 {
+      font-size: 26px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .page-header p {
+      color: var(--pl-muted);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    /* ── STEPPER ──────────────────────────── */
+    .stepper {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 32px;
+    }
+    .step-dot {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--pl-muted);
+    }
+    .step-dot .dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--pl-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--pl-muted);
+      transition: all 0.3s;
+    }
+    .step-dot.active .dot {
+      background: var(--pl-primary);
+      color: white;
+    }
+    .step-dot.done .dot {
+      background: var(--pl-success);
+      color: white;
+    }
+    .step-dot.active { color: var(--pl-text); }
+    .step-connector {
+      flex: 1;
+      height: 2px;
+      background: var(--pl-border);
+      align-self: center;
+      margin: 0 4px;
+    }
+    .step-connector.done { background: var(--pl-success); }
+
+    /* ── CARD ─────────────────────────────── */
+    .card {
+      background: var(--pl-surface);
+      border: 1px solid var(--pl-border);
+      border-radius: var(--pl-radius);
+      padding: 28px;
+      margin-bottom: 20px;
+      box-shadow: var(--pl-shadow);
+    }
+    .card-title {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .card-title .icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    /* ── FORM ─────────────────────────────── */
+    .form-group {
+      margin-bottom: 18px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--pl-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid var(--pl-border);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 15px;
+      color: var(--pl-text);
+      background: var(--pl-surface);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+    .form-group input:focus,
+    .form-group select:focus {
+      border-color: var(--pl-primary);
+      box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.12);
+    }
+    .form-group .hint {
+      font-size: 12px;
+      color: var(--pl-muted);
+      margin-top: 4px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 500px) {
+      .form-row { grid-template-columns: 1fr; }
+    }
+
+    /* ── STAMP PREVIEW ────────────────────── */
+    .stamp-preview {
+      background: linear-gradient(135deg, #F5F0E8 0%, #EDE8DC 100%);
+      border: 2px dashed var(--pl-accent);
+      border-radius: var(--pl-radius);
+      padding: 24px;
+      text-align: center;
+      margin-top: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .stamp-preview::before {
+      content: '';
+      position: absolute;
+      top: -20px;
+      right: -20px;
+      width: 80px;
+      height: 80px;
+      background: rgba(212, 163, 115, 0.15);
+      border-radius: 50%;
+    }
+    .stamp-preview .stamp-icon {
+      font-size: 36px;
+      margin-bottom: 8px;
+      opacity: 0.7;
+    }
+    .stamp-preview .stamp-label {
+      font-size: 13px;
+      color: var(--pl-muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+    .stamp-preview .stamp-amount {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--pl-primary-dark);
+    }
+    .stamp-preview .stamp-state {
+      font-size: 14px;
+      color: var(--pl-muted);
+      margin-top: 2px;
+    }
+    .stamp-preview .stamp-type {
+      font-size: 12px;
+      color: var(--pl-accent);
+      font-weight: 600;
+      margin-top: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── COST BREAKDOWN ───────────────────── */
+    .cost-breakdown {
+      background: var(--pl-primary-light);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 20px;
+    }
+    .cost-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 14px;
+      color: var(--pl-muted);
+    }
+    .cost-row.total {
+      border-top: 1.5px solid rgba(45, 106, 79, 0.2);
+      margin-top: 6px;
+      padding-top: 10px;
+      font-weight: 700;
+      color: var(--pl-primary-dark);
+      font-size: 16px;
+    }
+
+    /* ── BUTTONS ──────────────────────────── */
+    .btn {
+      padding: 14px 28px;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: center;
+    }
+    .btn-primary {
+      background: var(--pl-primary);
+      color: white;
+      width: 100%;
+    }
+    .btn-primary:hover { background: var(--pl-primary-dark); }
+    .btn-primary:disabled {
+      background: var(--pl-border);
+      color: var(--pl-muted);
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: var(--pl-surface);
+      color: var(--pl-primary);
+      border: 1.5px solid var(--pl-primary);
+    }
+    .btn-secondary:hover { background: var(--pl-primary-light); }
+
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .btn-group .btn { flex: 1; }
+
+    /* ── STATUS STATES ────────────────────── */
+    .status-panel {
+      text-align: center;
+      padding: 40px 20px;
+    }
+    .status-panel .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid var(--pl-border);
+      border-top-color: var(--pl-primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status-panel h3 {
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+    .status-panel p {
+      color: var(--pl-muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .status-available {
+      background: var(--pl-success-light);
+      border-color: var(--pl-success);
+    }
+    .status-available h3 { color: var(--pl-success); }
+
+    .status-failed {
+      background: var(--pl-danger-light);
+      border-color: var(--pl-danger);
+    }
+    .status-failed h3 { color: var(--pl-danger); }
+
+    /* ── ALERT ────────────────────────────── */
+    .alert {
+      padding: 14px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .alert-error {
+      background: var(--pl-danger-light);
+      color: var(--pl-danger);
+      border: 1px solid rgba(193, 57, 43, 0.2);
+    }
+    .alert-info {
+      background: var(--pl-warning-light);
+      color: #8B5E14;
+      border: 1px solid rgba(230, 126, 34, 0.2);
+    }
+
+    /* ── STAMP TYPE RADIO CARDS ───────────── */
+    .stamp-type-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .stamp-type-option {
+      position: relative;
+      border: 2px solid var(--pl-border);
+      border-radius: 10px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .stamp-type-option:hover { border-color: var(--pl-accent); }
+    .stamp-type-option.selected {
+      border-color: var(--pl-primary);
+      background: var(--pl-primary-light);
+    }
+    .stamp-type-option input {
+      position: absolute;
+      opacity: 0;
+    }
+    .stamp-type-option .type-name {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .stamp-type-option .type-desc {
+      font-size: 12px;
+      color: var(--pl-muted);
+    }
+
+    /* ── COMMON AMOUNTS ───────────────────── */
+    .quick-amounts {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .quick-amt {
+      padding: 6px 14px;
+      border: 1.5px solid var(--pl-border);
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      background: var(--pl-surface);
+      color: var(--pl-muted);
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .quick-amt:hover {
+      border-color: var(--pl-primary);
+      color: var(--pl-primary);
+    }
+    .quick-amt.active {
+      background: var(--pl-primary);
+      color: white;
+      border-color: var(--pl-primary);
+    }
+
+    .hidden { display: none !important; }
+
+    /* ── FOOTER ───────────────────────────── */
+    .footer-note {
+      text-align: center;
+      color: var(--pl-muted);
+      font-size: 12px;
+      margin-top: 24px;
+      padding-bottom: 40px;
+      line-height: 1.5;
+    }
+    .footer-note a {
+      color: var(--pl-primary);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <a href="/dashboard.html" class="nav-logo">Prop<span>Ledger</span></a>
+    <div class="nav-links">
+      <a href="/dashboard.html">Dashboard</a>
+      <a href="/agreement.html">Agreements</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- HEADER -->
+    <div class="page-header">
+      <h1>eStamp paper</h1>
+      <p>Get a legally valid digital stamp paper for your rental agreement. Issued via SHCIL with tamper-proof UIN.</p>
+    </div>
+
+    <!-- STEPPER -->
+    <div class="stepper">
+      <div class="step-dot active" id="step1-dot">
+        <div class="dot">1</div>
+        <span>Details</span>
+      </div>
+      <div class="step-connector" id="conn1"></div>
+      <div class="step-dot" id="step2-dot">
+        <div class="dot">2</div>
+        <span>Pay</span>
+      </div>
+      <div class="step-connector" id="conn2"></div>
+      <div class="step-dot" id="step3-dot">
+        <div class="dot">3</div>
+        <span>Stamp</span>
+      </div>
+    </div>
+
+    <!-- ALERT -->
+    <div class="alert alert-error" id="alertError"></div>
+    <div class="alert alert-info" id="alertInfo"></div>
+
+    <!-- ═══ STEP 1: DETAILS ═══ -->
+    <div id="step1">
+      <div class="card">
+        <div class="card-title">
+          <div class="icon" style="background: var(--pl-accent-light); color: var(--pl-accent);">📜</div>
+          Stamp paper details
+        </div>
+
+        <!-- Stamp Type -->
+        <div class="form-group">
+          <label>Document type</label>
+          <div class="stamp-type-grid">
+            <label class="stamp-type-option selected" onclick="selectType(this, 22088)">
+              <input type="radio" name="articleId" value="22088" checked>
+              <div class="type-name">Leave & License</div>
+              <div class="type-desc">Rental agreements</div>
+            </label>
+            <label class="stamp-type-option" onclick="selectType(this, 3969)">
+              <input type="radio" name="articleId" value="3969">
+              <div class="type-name">General</div>
+              <div class="type-desc">Other agreements</div>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>State</label>
+            <select id="stateSelect" onchange="updatePreview()">
+              <option value="">Select state</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Stamp duty (₹)</label>
+            <input type="number" id="stampAmount" placeholder="e.g. 500" min="10" oninput="updatePreview()">
+            <div class="quick-amounts">
+              <button class="quick-amt" onclick="setAmount(100, this)">₹100</button>
+              <button class="quick-amt" onclick="setAmount(200, this)">₹200</button>
+              <button class="quick-amt active" onclick="setAmount(500, this)">₹500</button>
+              <button class="quick-amt" onclick="setAmount(1000, this)">₹1000</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>First party (Landlord)</label>
+            <input type="text" id="firstParty" placeholder="Full legal name">
+          </div>
+          <div class="form-group">
+            <label>Second party (Tenant)</label>
+            <input type="text" id="secondParty" placeholder="Full legal name" value="Lessee">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Consideration / rent amount (₹)</label>
+          <input type="number" id="considerationAmount" placeholder="Monthly rent amount">
+          <div class="hint">The monthly rent or total consideration for the agreement period.</div>
+        </div>
+
+        <!-- Preview -->
+        <div class="stamp-preview" id="stampPreview" style="display: none;">
+          <div class="stamp-icon">🏛️</div>
+          <div class="stamp-label">Government of India — eStamp</div>
+          <div class="stamp-amount" id="previewAmount">₹500</div>
+          <div class="stamp-state" id="previewState">Maharashtra</div>
+          <div class="stamp-type" id="previewType">Leave & License Agreement</div>
+        </div>
+
+        <!-- Cost breakdown -->
+        <div class="cost-breakdown" id="costBreakdown" style="display: none;">
+          <div class="cost-row">
+            <span>Stamp duty</span>
+            <span id="costStamp">₹500</span>
+          </div>
+          <div class="cost-row">
+            <span>PropLedger service fee</span>
+            <span>₹49</span>
+          </div>
+          <div class="cost-row total">
+            <span>Total</span>
+            <span id="costTotal">₹549</span>
+          </div>
+        </div>
+
+        <div class="btn-group">
+          <a href="/agreement.html" class="btn btn-secondary" style="text-decoration: none; text-align: center;">← Back</a>
+          <button class="btn btn-primary" onclick="proceedToPayment()" id="btnProceed" disabled>
+            Order eStamp →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ STEP 2: PAYMENT ═══ -->
+    <div id="step2" class="hidden">
+      <div class="card">
+        <div class="card-title">
+          <div class="icon" style="background: var(--pl-primary-light); color: var(--pl-primary);">💳</div>
+          Confirm & pay
+        </div>
+
+        <div class="stamp-preview">
+          <div class="stamp-label">eStamp Paper</div>
+          <div class="stamp-amount" id="payAmount">₹500</div>
+          <div class="stamp-state" id="payState">Maharashtra</div>
+        </div>
+
+        <div class="cost-breakdown" style="display: block;">
+          <div class="cost-row">
+            <span>Stamp duty</span>
+            <span id="payCostStamp">₹500</span>
+          </div>
+          <div class="cost-row">
+            <span>Service fee</span>
+            <span>₹49</span>
+          </div>
+          <div class="cost-row total">
+            <span>Pay now</span>
+            <span id="payCostTotal">₹549</span>
+          </div>
+        </div>
+
+        <div class="btn-group">
+          <button class="btn btn-secondary" onclick="backToStep1()">← Edit</button>
+          <button class="btn btn-primary" onclick="initiatePayment()" id="btnPay">
+            Pay ₹<span id="payBtnAmount">549</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ STEP 3: PROCESSING / STATUS ═══ -->
+    <div id="step3" class="hidden">
+      <!-- Ordering -->
+      <div class="card" id="statusOrdering">
+        <div class="status-panel">
+          <div class="spinner"></div>
+          <h3>Ordering your eStamp...</h3>
+          <p>Placing order with SHCIL via Surepass. This usually takes a few seconds.</p>
+        </div>
+      </div>
+
+      <!-- Polling -->
+      <div class="card hidden" id="statusPolling">
+        <div class="status-panel">
+          <div class="spinner"></div>
+          <h3>Generating stamp paper</h3>
+          <p>Your eStamp is being generated. This typically takes 30–120 seconds.<br>
+          We're checking every 10 seconds. Please don't close this page.</p>
+          <div style="margin-top: 16px; font-size: 13px; color: var(--pl-muted);">
+            Attempt <span id="pollCount">1</span> • Client ID: <code id="pollClientId"></code>
+          </div>
+        </div>
+      </div>
+
+      <!-- Available -->
+      <div class="card hidden status-available" id="statusAvailable">
+        <div class="status-panel">
+          <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
+          <h3>eStamp paper ready!</h3>
+          <p>Your stamp paper has been generated successfully.</p>
+          <div style="margin-top: 12px; font-size: 13px; color: var(--pl-muted);">
+            Certificate: <code id="stampCertNo"></code>
+          </div>
+          <div class="btn-group" style="max-width: 400px; margin: 24px auto 0;">
+            <a id="stampPdfLink" href="#" target="_blank" class="btn btn-secondary" style="text-decoration: none; text-align: center;">
+              View stamp PDF
+            </a>
+            <button class="btn btn-primary" onclick="proceedToEsign()">
+              Continue to eSign →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Failed -->
+      <div class="card hidden status-failed" id="statusFailed">
+        <div class="status-panel">
+          <div style="font-size: 48px; margin-bottom: 12px;">❌</div>
+          <h3>Stamp generation failed</h3>
+          <p id="failedMessage">Something went wrong. Please try again or contact support.</p>
+          <div class="btn-group" style="max-width: 300px; margin: 20px auto 0;">
+            <button class="btn btn-primary" onclick="retryOrder()">Try again</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      eStamp papers are issued by SHCIL (Stock Holding Corporation of India Ltd).<br>
+      Each stamp carries a unique UIN and is legally valid across India.<br>
+      <a href="/dashboard.html">Back to dashboard</a>
+    </div>
+  </div>
+
+  <!-- Razorpay SDK -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <script>
+    // ── CONFIG ──────────────────────────────
+    const SUPABASE_URL = 'https://plumsrlhachflnsmwpsh.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsdW1zcmxoYWNoZmxuc213cHNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI4MDc3NTAsImV4cCI6MjA1ODM4Mzc1MH0.URBjXASMPMfJE6t9GFMCLgTRqAj6JxPOasCizLKi-v0';
+    const RAZORPAY_KEY = 'rzp_live_YOUR_KEY'; // TODO: replace with your Razorpay key
+
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const SERVICE_FEE = 49;
+
+    // ── STATE ───────────────────────────────
+    let currentUser = null;
+    let selectedArticle = 22088;
+    let stampClientId = null;
+    let pollTimer = null;
+    let pollAttempts = 0;
+    const MAX_POLL = 30; // 30 × 10s = 5 min max
+
+    const STATES = {
+      AN: 'Andaman & Nicobar', AP: 'Andhra Pradesh', AR: 'Arunachal Pradesh',
+      AS: 'Assam', BR: 'Bihar', CH: 'Chandigarh', CG: 'Chhattisgarh',
+      DD: 'Daman & Diu', DL: 'Delhi', GA: 'Goa', GJ: 'Gujarat',
+      HR: 'Haryana', HP: 'Himachal Pradesh', JK: 'Jammu & Kashmir',
+      JH: 'Jharkhand', KA: 'Karnataka', KL: 'Kerala', LA: 'Ladakh',
+      LD: 'Lakshadweep', MP: 'Madhya Pradesh', MH: 'Maharashtra',
+      MN: 'Manipur', ML: 'Meghalaya', MZ: 'Mizoram', NL: 'Nagaland',
+      OD: 'Odisha', PY: 'Puducherry', PB: 'Punjab', RJ: 'Rajasthan',
+      SK: 'Sikkim', TN: 'Tamil Nadu', TS: 'Telangana', TR: 'Tripura',
+      UP: 'Uttar Pradesh', UK: 'Uttarakhand', WB: 'West Bengal'
+    };
+
+    const ARTICLES = {
+      22088: 'Leave & License Agreement',
+      3969:  'General Agreement'
+    };
+
+    // ── INIT ────────────────────────────────
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Populate state dropdown
+      const sel = document.getElementById('stateSelect');
+      Object.entries(STATES).sort((a, b) => a[1].localeCompare(b[1])).forEach(([code, name]) => {
+        const opt = document.createElement('option');
+        opt.value = code;
+        opt.textContent = name;
+        sel.appendChild(opt);
+      });
+
+      // Set default amount
+      document.getElementById('stampAmount').value = 500;
+
+      // Check auth
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) {
+        window.location.href = '/login.html?redirect=estamp';
+        return;
+      }
+      currentUser = user;
+
+      // Pre-fill from URL params (agreement flow passes these)
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('first_party')) document.getElementById('firstParty').value = params.get('first_party');
+      if (params.get('second_party')) document.getElementById('secondParty').value = params.get('second_party');
+      if (params.get('state')) {
+        document.getElementById('stateSelect').value = params.get('state');
+      }
+      if (params.get('amount')) {
+        document.getElementById('stampAmount').value = params.get('amount');
+        highlightQuickAmt(Number(params.get('amount')));
+      }
+      if (params.get('consideration')) {
+        document.getElementById('considerationAmount').value = params.get('consideration');
+      }
+
+      updatePreview();
+    });
+
+    // ── FORM HELPERS ────────────────────────
+    function selectType(el, articleId) {
+      document.querySelectorAll('.stamp-type-option').forEach(o => o.classList.remove('selected'));
+      el.classList.add('selected');
+      selectedArticle = articleId;
+      updatePreview();
+    }
+
+    function setAmount(val, btn) {
+      document.getElementById('stampAmount').value = val;
+      highlightQuickAmt(val);
+      updatePreview();
+    }
+
+    function highlightQuickAmt(val) {
+      document.querySelectorAll('.quick-amt').forEach(b => {
+        b.classList.toggle('active', parseInt(b.textContent.replace('₹', '').replace(',', '')) === val);
+      });
+    }
+
+    function updatePreview() {
+      const state = document.getElementById('stateSelect').value;
+      const amount = parseInt(document.getElementById('stampAmount').value) || 0;
+      const firstName = document.getElementById('firstParty').value.trim();
+
+      const hasData = state && amount >= 10;
+
+      document.getElementById('stampPreview').style.display = hasData ? 'block' : 'none';
+      document.getElementById('costBreakdown').style.display = hasData ? 'block' : 'none';
+      document.getElementById('btnProceed').disabled = !hasData || !firstName;
+
+      if (hasData) {
+        document.getElementById('previewAmount').textContent = `₹${amount.toLocaleString('en-IN')}`;
+        document.getElementById('previewState').textContent = STATES[state] || state;
+        document.getElementById('previewType').textContent = ARTICLES[selectedArticle] || '';
+        document.getElementById('costStamp').textContent = `₹${amount.toLocaleString('en-IN')}`;
+        document.getElementById('costTotal').textContent = `₹${(amount + SERVICE_FEE).toLocaleString('en-IN')}`;
+      }
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('alertError');
+      el.textContent = msg;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 8000);
+    }
+
+    // ── STEP NAVIGATION ─────────────────────
+    function goToStep(n) {
+      document.querySelectorAll('#step1, #step2, #step3').forEach(el => el.classList.add('hidden'));
+      document.getElementById(`step${n}`).classList.remove('hidden');
+
+      [1, 2, 3].forEach(i => {
+        const dot = document.getElementById(`step${i}-dot`);
+        dot.classList.remove('active', 'done');
+        if (i < n) dot.classList.add('done');
+        if (i === n) dot.classList.add('active');
+      });
+      [1, 2].forEach(i => {
+        const conn = document.getElementById(`conn${i}`);
+        conn.classList.toggle('done', i < n);
+      });
+    }
+
+    function proceedToPayment() {
+      const state = document.getElementById('stateSelect').value;
+      const amount = parseInt(document.getElementById('stampAmount').value);
+      const firstName = document.getElementById('firstParty').value.trim();
+
+      if (!state) return showError('Please select a state.');
+      if (!amount || amount < 10) return showError('Stamp duty must be at least ₹10.');
+      if (!firstName) return showError('Please enter the first party (landlord) name.');
+
+      // PAYMENT BYPASSED — skip step 2, go straight to ordering
+      // TODO: Re-enable Razorpay payment gate before production launch
+      orderEStamp(null, null);
+    }
+
+    function backToStep1() {
+      goToStep(1);
+    }
+
+    // ── PAYMENT ─────────────────────────────
+    function initiatePayment() {
+      const amount = parseInt(document.getElementById('stampAmount').value);
+      const total = amount + SERVICE_FEE;
+
+      const options = {
+        key: RAZORPAY_KEY,
+        amount: total * 100, // paise
+        currency: 'INR',
+        name: 'PropLedger',
+        description: `eStamp Paper — ₹${amount} stamp duty`,
+        prefill: {
+          email: currentUser?.email || '',
+        },
+        theme: {
+          color: '#2D6A4F'
+        },
+        handler: function (response) {
+          // Payment success — order the stamp
+          orderEStamp(response.razorpay_payment_id, response.razorpay_order_id);
+        },
+        modal: {
+          ondismiss: function () {
+            // User cancelled payment
+          }
+        }
+      };
+
+      const rzp = new Razorpay(options);
+      rzp.open();
+    }
+
+    // ── ORDER ESTAMP ─────────────────────────
+    async function orderEStamp(paymentId, orderId) {
+      goToStep(3);
+      showSubStep('statusOrdering');
+
+      const payload = {
+        action: 'order-stamp',
+        user_id: currentUser.id,
+        agreement_id: new URLSearchParams(window.location.search).get('agreement_id') || null,
+        first_party: document.getElementById('firstParty').value.trim(),
+        second_party: document.getElementById('secondParty').value.trim() || 'Lessee',
+        state: document.getElementById('stateSelect').value,
+        article_id: selectedArticle,
+        amount: parseInt(document.getElementById('stampAmount').value),
+        consideration_amount: parseInt(document.getElementById('considerationAmount').value) || parseInt(document.getElementById('stampAmount').value),
+        razorpay_payment_id: paymentId || null,
+        razorpay_order_id: orderId || null
+      };
+
+      try {
+        const res = await fetch('/api/estamp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || data.details || 'Order failed');
+        }
+
+        stampClientId = data.client_id;
+        startPolling();
+
+      } catch (err) {
+        showSubStep('statusFailed');
+        document.getElementById('failedMessage').textContent = err.message;
+      }
+    }
+
+    // ── POLLING ─────────────────────────────
+    function startPolling() {
+      showSubStep('statusPolling');
+      pollAttempts = 0;
+      document.getElementById('pollClientId').textContent = stampClientId;
+      pollStatus();
+    }
+
+    async function pollStatus() {
+      pollAttempts++;
+      document.getElementById('pollCount').textContent = pollAttempts;
+
+      try {
+        const res = await fetch('/api/estamp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'check-status',
+            client_id: stampClientId
+          })
+        });
+
+        const data = await res.json();
+
+        if (data.status === 'available') {
+          clearTimeout(pollTimer);
+          showStampReady(data);
+          return;
+        }
+
+        if (data.status === 'failed' || data.status === 'expired') {
+          clearTimeout(pollTimer);
+          showSubStep('statusFailed');
+          document.getElementById('failedMessage').textContent =
+            `Stamp generation ${data.status}. Please try again or contact support.`;
+          return;
+        }
+
+        // Still pending — poll again
+        if (pollAttempts < MAX_POLL) {
+          pollTimer = setTimeout(pollStatus, 10000); // 10 seconds
+        } else {
+          showSubStep('statusFailed');
+          document.getElementById('failedMessage').textContent =
+            'Stamp generation is taking longer than expected. Please check back later or contact support.';
+        }
+
+      } catch (err) {
+        console.error('Poll error:', err);
+        if (pollAttempts < MAX_POLL) {
+          pollTimer = setTimeout(pollStatus, 10000);
+        }
+      }
+    }
+
+    function showStampReady(data) {
+      showSubStep('statusAvailable');
+      document.getElementById('stampCertNo').textContent = data.certificate_no || 'N/A';
+      if (data.stamp_pdf_url) {
+        document.getElementById('stampPdfLink').href = data.stamp_pdf_url;
+      }
+    }
+
+    function showSubStep(id) {
+      ['statusOrdering', 'statusPolling', 'statusAvailable', 'statusFailed']
+        .forEach(s => document.getElementById(s).classList.add('hidden'));
+      document.getElementById(id).classList.remove('hidden');
+    }
+
+    // ── PROCEED TO ESIGN ────────────────────
+    async function proceedToEsign() {
+      // First, fetch and store the stamp PDF
+      try {
+        const res = await fetch('/api/estamp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'fetch-stamp-pdf',
+            client_id: stampClientId
+          })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          // Redirect to eSign with stamp info
+          const params = new URLSearchParams(window.location.search);
+          params.set('stamp_client_id', stampClientId);
+          params.set('stamp_pdf_url', data.stamp_pdf_url);
+          window.location.href = `/esign.html?${params.toString()}`;
+        } else {
+          throw new Error(data.error);
+        }
+      } catch (err) {
+        showError('Could not prepare stamp PDF: ' + err.message);
+      }
+    }
+
+    function retryOrder() {
+      goToStep(1);
+    }
+  </script>
+
+</body>
+</html>
