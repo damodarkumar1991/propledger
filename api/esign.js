@@ -88,7 +88,7 @@ module.exports = async function handler(req, res) {
       // Step 2: Initialize eSign for each signer
       // Correct payload based on Surepass actual API spec
       const makePayload = (name, email, xPos) => ({
-        pdf_pre_uploaded: false,
+        pdf_pre_uploaded: true,
         expiry_minutes: 10080, // 7 days
         sign_type: 'aadhaar',
         redirect_url: redirectUrl,
