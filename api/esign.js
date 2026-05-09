@@ -63,35 +63,32 @@ module.exports = async function handler(req, res) {
       const BASE_URL = 'https://www.propledger.in';
       const redirectUrl = `${BASE_URL}/esign.html?id=${agreementId}&signed=true`;
 
-      // Step 1: Upload PDF first, get a URL back
-      let pdfUrl = null;
-      try {
-        const FormData = require('form-data');
-        const pdfBuffer = Buffer.from(pdfBase64, 'base64');
-        const form = new FormData();
-        form.append('file', pdfBuffer, {
-          filename: `PropLedger_Agreement_${agreementId || Date.now()}.pdf`,
+    // Step 1: Upload PDF to Supabase Storage, get a public URL
+      const { createClient } = require('@supabase/supabase-js');
+      const sbAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+      const pdfBuffer = Buffer.from(pdfBase64, 'base64');
+      const fileName = `esign_${agreementId || Date.now()}.pdf`;
+
+      const { error: uploadErr } = await sbAdmin.storage
+        .from('agreements')
+        .upload(fileName, pdfBuffer, {
           contentType: 'application/pdf',
-          knownLength: pdfBuffer.length
+          upsert: true
         });
 
-        const uploadRes = await axios.post(
-          `${SUREPASS_BASE}/api/v1/esign/upload-pdf`,
-          form,
-          { headers: { ...headers, ...form.getHeaders() }, timeout: 30000 }
-        );
-        console.log('PDF upload response:', JSON.stringify(uploadRes.data));
-        pdfUrl = uploadRes.data?.data?.file_url || uploadRes.data?.data?.pdf_url || uploadRes.data?.file_url;
-      } catch (uploadErr) {
-        console.error('PDF upload error:', uploadErr.response?.data || uploadErr.message);
-        // If upload endpoint is different, fall back to base64 in payload
+      if (uploadErr) {
+        console.error('Supabase storage upload error:', uploadErr);
+        return res.status(500).json({ error: 'Failed to upload agreement PDF', details: uploadErr.message });
       }
+
+      const { data: urlData } = sbAdmin.storage.from('agreements').getPublicUrl(fileName);
+      const pdfPublicUrl = urlData.publicUrl;
+      console.log('PDF uploaded to Supabase:', pdfPublicUrl);
 
       // Step 2: Initialize eSign for each signer
       // Correct payload based on Surepass actual API spec
       const makePayload = (name, email, xPos) => ({
-        pdf_pre_uploaded: !!pdfUrl,
-        ...(pdfUrl ? { pdf_url: pdfUrl } : { file_data: pdfBase64 }),
+        pdf_pre_uploaded: false,
         expiry_minutes: 10080, // 7 days
         sign_type: 'aadhaar',
         redirect_url: redirectUrl,
@@ -128,6 +125,12 @@ module.exports = async function handler(req, res) {
         console.log('Landlord init:', JSON.stringify(r.data));
         landlordToken = r.data?.data?.client_id;
         landlordUrl = r.data?.data?.url;
+        // Attach PDF to this session
+        await axios.post(`${SUREPASS_BASE}/api/v1/esign/upload-pdf`, {
+          client_id: landlordToken,
+          link: pdfPublicUrl
+        }, { headers, timeout: 30000 });
+        console.log('PDF attached to landlord session');
         if (!landlordToken) throw new Error(r.data?.message || 'No client_id in response');
       } catch (err) {
         const e = err.response?.data || { message: err.message };
@@ -147,6 +150,12 @@ module.exports = async function handler(req, res) {
         console.log('Tenant init:', JSON.stringify(r.data));
         tenantToken = r.data?.data?.client_id;
         tenantUrl = r.data?.data?.url;
+        // Attach PDF to tenant session
+        await axios.post(`${SUREPASS_BASE}/api/v1/esign/upload-pdf`, {
+          client_id: tenantToken,
+          link: pdfPublicUrl
+        }, { headers, timeout: 30000 });
+        console.log('PDF attached to tenant session');
       } catch (err) {
         console.error('Tenant init error (non-fatal):', err.response?.data || err.message);
       }
