@@ -594,11 +594,34 @@
         <div class="result-badge"><div class="result-badge-dot"></div> Agreement Generated Successfully</div>
         <div class="result-title" id="result-title">Rental Agreement</div>
         <div class="result-meta" id="result-meta"></div>
-        <div class="result-actions">
-          <button class="btn-download" id="btn-esign" onclick="goToESign()" style="background:var(--green,#2dd4a0);color:#0a0f1e;display:none">✍️ Send for Aadhaar eSign</button>
+       <div class="result-actions">
           <button class="btn-download" onclick="printAgreement()">🖨️ Print / Save as PDF</button>
           <button class="btn-copy" onclick="copyAgreement()">📋 Copy Text</button>
           <button class="btn-new" onclick="resetForm()">+ New Agreement</button>
+        </div>
+ 
+        <!-- NEXT STEPS: eStamp + eSign -->
+        <div id="next-steps-card" style="display:none; background:linear-gradient(135deg, rgba(45,212,160,0.06), rgba(201,168,76,0.06)); border:1px solid rgba(201,168,76,0.2); border-radius:12px; padding:24px; margin-bottom:20px;">
+          <div style="font-size:14px; font-weight:600; color:var(--white); margin-bottom:4px;">What would you like to do next?</div>
+          <div style="font-size:12px; color:var(--muted); margin-bottom:16px;">Choose how to finalise your agreement</div>
+          
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <!-- Option 1: eStamp + eSign -->
+            <div onclick="goToEStamp()" style="background:var(--navy-3); border:1.5px solid var(--gold-border); border-radius:10px; padding:18px; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.borderColor='var(--gold)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--gold-border)';this.style.transform='none'">
+              <div style="font-size:22px; margin-bottom:8px;">📜</div>
+              <div style="font-size:14px; font-weight:600; color:var(--gold-light); margin-bottom:4px;">Get eStamp + eSign</div>
+              <div style="font-size:12px; color:var(--muted); line-height:1.5;">Buy govt stamp paper digitally, then Aadhaar eSign — fully legal, no printing needed</div>
+              <div style="margin-top:10px; font-size:11px; color:var(--gold); font-weight:600;">RECOMMENDED →</div>
+            </div>
+            
+            <!-- Option 2: eSign only -->
+            <div onclick="goToESign()" style="background:var(--navy-3); border:1.5px solid rgba(45,212,160,0.2); border-radius:10px; padding:18px; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.borderColor='var(--green)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(45,212,160,0.2)';this.style.transform='none'">
+              <div style="font-size:22px; margin-bottom:8px;">✍️</div>
+              <div style="font-size:14px; font-weight:600; color:var(--green); margin-bottom:4px;">Aadhaar eSign only</div>
+              <div style="font-size:12px; color:var(--muted); line-height:1.5;">Already have stamp paper or don't need one? Sign directly with Aadhaar OTP</div>
+              <div style="margin-top:10px; font-size:11px; color:var(--green); font-weight:600;">QUICK SIGN →</div>
+            </div>
+          </div>
         </div>
         <div class="agreement-text" id="agreement-output"></div>
         <div class="disclaimer">⚠️ This agreement is based on standard Indian property law and your inputs. For formal registration under the Registration Act, 1908, have it reviewed by a qualified advocate and printed on stamp paper of appropriate value as per your state's Stamp Duty Act. PropLedger is not a law firm and this does not constitute legal advice.</div>
@@ -613,10 +636,37 @@
   let generatedAgreement = '';
   let savedAgreementId = null;
 
-  function goToESign() {
+ function goToESign() {
     if (savedAgreementId) {
       window.location.href = `esign.html?id=${savedAgreementId}`;
     }
+  }
+ 
+  function goToEStamp() {
+    const params = new URLSearchParams();
+    params.set('first_party', g('landlordName'));
+    params.set('second_party', g('tenantName'));
+    // Map state name to 2-letter code for Surepass
+    const stateMap = {
+      'andaman':'AN','andhra pradesh':'AP','arunachal':'AR','assam':'AS','bihar':'BR',
+      'chandigarh':'CH','chhattisgarh':'CG','daman':'DD','delhi':'DL','goa':'GA',
+      'gujarat':'GJ','haryana':'HR','himachal':'HP','jammu':'JK','jharkhand':'JH',
+      'karnataka':'KA','kerala':'KL','ladakh':'LA','lakshadweep':'LD','madhya pradesh':'MP',
+      'maharashtra':'MH','manipur':'MN','meghalaya':'ML','mizoram':'MZ','nagaland':'NL',
+      'odisha':'OD','puducherry':'PY','punjab':'PB','rajasthan':'RJ','sikkim':'SK',
+      'tamil nadu':'TN','telangana':'TS','tripura':'TR','uttar pradesh':'UP',
+      'uttarakhand':'UK','west bengal':'WB'
+    };
+    const stateInput = (g('state') || '').toLowerCase().trim();
+    let stateCode = '';
+    for (const [key, code] of Object.entries(stateMap)) {
+      if (stateInput.includes(key)) { stateCode = code; break; }
+    }
+    if (stateCode) params.set('state', stateCode);
+    if (g('rent')) params.set('consideration', g('rent'));
+    if (g('stampDutyValue')) params.set('amount', g('stampDutyValue'));
+    if (savedAgreementId) params.set('agreement_id', savedAgreementId);
+    window.location.href = `estamp.html?${params.toString()}`;
   }
 
   // ── STEPPER ──
@@ -795,7 +845,7 @@
       // Save to Supabase and capture ID for eSign
       savedAgreementId = await saveAgreementToSupabase(generatedAgreement);
       if (savedAgreementId) {
-        document.getElementById('btn-esign').style.display = 'inline-flex';
+        document.getElementById('next-steps-card').style.display = 'block';
       }
       document.getElementById('result-title').textContent = `${g('agreementType')} — ${g('tenantName')}`;
       document.getElementById('result-meta').textContent = `${g('propertyAddress')} · ₹${parseInt(g('rent')).toLocaleString('en-IN')}/month · ${g('duration')} months · Generated ${new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}`;
