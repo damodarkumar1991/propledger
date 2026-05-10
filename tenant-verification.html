@@ -274,13 +274,17 @@
     setBtn('pay-btn', 'pay-btn-text', 'pay-spinner', true, 'Setting up...');
     try {
       const { data: { session } } = await sb.auth.getSession();
-      const res = await fetch('/api/kyc/create-verification', {
+      const res = await fetch('/api/kyc', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ agreement_id: agreementId, payment_id: paymentId })
+        body: JSON.stringify({
+          action:       'create-verification',
+          agreement_id: agreementId,
+          payment_id:   paymentId
+        })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create session');
@@ -311,10 +315,10 @@
     hideError();
 
     try {
-      const res = await fetch('/api/kyc/pan-verify', {
+      const res = await fetch('/api/kyc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pan_number: pan, verification_id: verificationId })
+        body: JSON.stringify({ action: 'pan-verify', pan_number: pan, verification_id: verificationId })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || data.detail || 'Verification failed');
