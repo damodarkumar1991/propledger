@@ -57,6 +57,8 @@ module.exports = async (req, res) => {
           states: SUPPORTED_STATES,
           articles: ARTICLE_IDS
         });
+      case 'probe-articles':
+        return await probeArticles(req, res);
       default:
         return res.status(400).json({ error: 'Invalid action. Use: order-stamp, check-status, fetch-stamp-pdf, get-config' });
     }
@@ -309,5 +311,50 @@ async function fetchStampPdf(req, res) {
     client_id,
     stamp_pdf_url: publicUrl,
     message: 'Stamp PDF downloaded and stored'
+  });
+}
+
+// ─── GET ARTICLES (discovery) ────────────────────────────
+async function probeArticles(req, res) {
+  const { state = 'HR' } = req.body;
+  
+  // Try fetching article list from Surepass (if endpoint exists)
+  const endpoints = [
+    `${SUREPASS_BASE}/api/v1/stamper-v2/get-articles/${state}`,
+    `${SUREPASS_BASE}/api/v1/stamper-v2/articles/${state}`,
+    `${SUREPASS_BASE}/api/v1/stamper-v2/list-articles?state=${state}`,
+    `${SUREPASS_BASE}/api/v1/stamper-v2/get-articles`,
+    `${SUREPASS_BASE}/api/v1/stamper-v2/articles`
+  ];
+  
+  const results = [];
+  
+  for (const url of endpoints) {
+    try {
+      const r = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${SUREPASS_TOKEN}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const text = await r.text();
+      let parsed;
+      try { parsed = JSON.parse(text); } catch(e) { parsed = { raw: text.substring(0, 500) }; }
+      
+      results.push({
+        url: url.replace(SUREPASS_BASE, ''),
+        status: r.status,
+        response: parsed
+      });
+    } catch (err) {
+      results.push({ url: url.replace(SUREPASS_BASE, ''), error: err.message });
+    }
+  }
+  
+  return res.status(200).json({
+    success: true,
+    state_tested: state,
+    endpoint_results: results
   });
 }
