@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PropLedger — Tenant Verification</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="/payment.js"></script>
+<style>
+  :root{
+    --navy:#0a0f1e;--navy-2:#0f1628;--navy-3:#141d35;--navy-4:#1a2444;
+    --gold:#c9a84c;--gold-light:#e8c97a;--gold-dim:rgba(201,168,76,0.1);--gold-border:rgba(201,168,76,0.25);
+    --white:#f8f6f0;--white-2:#e8e4d9;--muted:#8892a4;--muted-2:#5a6478;
+    --green:#2dd4a0;--green-dim:rgba(45,212,160,0.1);--green-border:rgba(45,212,160,0.2);
+    --red:#f87171;--red-dim:rgba(248,113,113,0.08);--red-border:rgba(248,113,113,0.2);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Outfit',sans-serif;background:var(--navy);color:var(--white);min-height:100vh;}
+
+  .topbar{background:var(--navy-2);border-bottom:1px solid rgba(255,255,255,0.06);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:var(--white);text-decoration:none;}
+  .logo span{color:var(--gold);}
+  .back-btn{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;transition:color 0.2s;}
+  .back-btn:hover{color:var(--white-2);}
+
+  .page{max-width:560px;margin:0 auto;padding:40px 24px;}
+
+  /* PROGRESS */
+  .progress-wrap{margin-bottom:32px;}
+  .progress-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;font-weight:600;}
+  .steps{display:flex;align-items:center;}
+  .step{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;}
+  .step-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;transition:all 0.3s;}
+  .step.pending .step-num{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--muted-2);}
+  .step.active  .step-num{background:var(--gold);color:var(--navy);}
+  .step.done    .step-num{background:var(--green-dim);border:1px solid var(--green-border);color:var(--green);}
+  .step.pending .step-label{color:var(--muted-2);}
+  .step.active  .step-label{color:var(--white);}
+  .step.done    .step-label{color:var(--green);}
+  .step-line{flex:1;height:1px;background:rgba(255,255,255,0.08);margin:0 10px;transition:background 0.3s;}
+  .step-line.done{background:var(--green);}
+
+  /* PANELS */
+  .panel{background:var(--navy-2);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:28px;margin-bottom:20px;display:none;}
+  .panel.active{display:block;}
+  .panel-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:var(--white);margin-bottom:6px;}
+  .panel-sub{font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:22px;}
+
+  /* WHAT YOU GET */
+  .feature-list{background:var(--navy-3);border-radius:10px;padding:16px 18px;margin-bottom:22px;}
+  .feature-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted-2);margin-bottom:12px;}
+  .feature-item{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);padding:4px 0;}
+  .feature-item span.icon{color:var(--green);font-size:14px;}
+
+  /* PAYMENT ROW */
+  .pay-row{border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:16px 18px;margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;}
+  .pay-label{font-size:14px;color:var(--white-2);}
+  .pay-amount{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:700;color:var(--gold);}
+
+  /* INPUT */
+  .fg{margin-bottom:18px;}
+  .fg label{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:7px;}
+  .fg input{width:100%;background:var(--navy-3);border:1px solid rgba(255,255,255,0.08);border-radius:9px;padding:13px 16px;font-size:15px;font-family:'Outfit',sans-serif;color:var(--white);outline:none;transition:all 0.2s;letter-spacing:1px;}
+  .fg input:focus{border-color:var(--gold-border);background:var(--navy-4);}
+  .fg input::placeholder{color:var(--muted-2);letter-spacing:0;}
+  .fg .hint{font-size:12px;color:var(--muted-2);margin-top:6px;}
+
+  /* BUTTONS */
+  .btn-primary{width:100%;background:var(--gold);color:var(--navy);border:none;border-radius:9px;padding:14px;font-size:15px;font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .btn-primary:hover:not(:disabled){background:var(--gold-light);}
+  .btn-primary:disabled{opacity:0.5;cursor:not-allowed;}
+  .btn-outline{width:100%;background:transparent;border:1px solid rgba(255,255,255,0.1);border-radius:9px;padding:12px;font-size:14px;font-weight:500;color:var(--muted);font-family:'Outfit',sans-serif;cursor:pointer;transition:all 0.2s;margin-top:10px;}
+  .btn-outline:hover{border-color:rgba(255,255,255,0.2);color:var(--white-2);}
+
+  /* RESULT ROWS */
+  .result-card{background:var(--navy-3);border-radius:12px;padding:18px;margin-bottom:18px;}
+  .result-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:13px;}
+  .result-row:last-child{border-bottom:none;}
+  .result-label{color:var(--muted);}
+  .result-value{font-weight:500;color:var(--white-2);text-align:right;}
+  .result-value.green{color:var(--green);}
+  .result-value.gold{color:var(--gold);}
+
+  /* SUCCESS */
+  .success-icon{font-size:56px;text-align:center;margin-bottom:16px;animation:pop 0.5s ease;}
+  @keyframes pop{0%{transform:scale(0.5);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+  .success-title{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:700;color:var(--white);text-align:center;margin-bottom:6px;}
+  .success-sub{font-size:14px;color:var(--muted);text-align:center;margin-bottom:24px;}
+
+  /* ALERT */
+  .alert{padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;display:none;align-items:flex-start;gap:10px;line-height:1.5;}
+  .alert.show{display:flex;}
+  .alert-error{background:var(--red-dim);border:1px solid var(--red-border);color:var(--red);}
+
+  /* SPINNER */
+  .spinner{width:16px;height:16px;border:2px solid rgba(10,15,30,0.3);border-top-color:var(--navy);border-radius:50%;animation:spin 0.7s linear infinite;display:none;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* LOADING */
+  .page-loading{display:flex;align-items:center;justify-content:center;min-height:60vh;flex-direction:column;gap:16px;}
+  .page-spinner{width:24px;height:24px;border:2px solid rgba(201,168,76,0.2);border-top-color:var(--gold);border-radius:50%;animation:spin 0.7s linear infinite;}
+
+  /* BADGE */
+  .verified-badge{display:inline-flex;align-items:center;gap:6px;background:var(--green-dim);border:1px solid var(--green-border);color:var(--green);padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;margin-bottom:16px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="index.html" class="logo">Prop<span>Ledger</span></a>
+  <a href="dashboard.html" class="back-btn">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Back to Dashboard
+  </a>
+</div>
+
+<div class="page">
+
+  <!-- LOADING -->
+  <div id="page-loading" class="page-loading">
+    <div class="page-spinner"></div>
+    <div style="font-size:13px;color:var(--muted)">Loading...</div>
+  </div>
+
+  <div id="page-content" style="display:none">
+
+    <!-- PROGRESS -->
+    <div class="progress-wrap">
+      <div class="progress-label">Tenant Verification</div>
+      <div class="steps">
+        <div class="step active" id="ps1"><div class="step-num" id="ps1-num">1</div><div class="step-label">Pay</div></div>
+        <div class="step-line" id="pl1"></div>
+        <div class="step pending" id="ps2"><div class="step-num" id="ps2-num">2</div><div class="step-label">PAN</div></div>
+        <div class="step-line" id="pl2"></div>
+        <div class="step pending" id="ps3"><div class="step-num" id="ps3-num">3</div><div class="step-label">Done</div></div>
+      </div>
+    </div>
+
+    <!-- ALERT -->
+    <div class="alert alert-error" id="main-alert">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="alert-text"></span>
+    </div>
+
+    <!-- PANEL 1: Intro + Pay -->
+    <div class="panel active" id="panel-intro">
+      <div class="panel-title">Verify Your Tenant</div>
+      <div class="panel-sub">Instantly verify your tenant's identity against the government PAN database. Report saved permanently to your PropLedger account.</div>
+
+      <div class="feature-list">
+        <div class="feature-title">What you get</div>
+        <div class="feature-item"><span class="icon">✓</span> PAN verified against Income Tax database</div>
+        <div class="feature-item"><span class="icon">✓</span> Tenant name and date of birth confirmed</div>
+        <div class="feature-item"><span class="icon">✓</span> PAN active status checked</div>
+        <div class="feature-item"><span class="icon">✓</span> Report saved to your account permanently</div>
+      </div>
+
+      <div class="pay-row">
+        <div class="pay-label">Tenant PAN Verification</div>
+        <div class="pay-amount">₹199</div>
+      </div>
+
+      <button class="btn-primary" id="pay-btn" onclick="handlePay()">
+        <span id="pay-btn-text">Pay ₹199 · Continue</span>
+        <div class="spinner" id="pay-spinner"></div>
+      </button>
+      <div style="margin-top:12px;font-size:12px;color:var(--muted-2);text-align:center;">
+        Secure payment via Razorpay · UPI, Cards, Net Banking accepted
+      </div>
+    </div>
+
+    <!-- PANEL 2: PAN Entry -->
+    <div class="panel" id="panel-pan">
+      <div class="panel-title">Enter Tenant PAN</div>
+      <div class="panel-sub">Enter the tenant's PAN card number exactly as printed on their card.</div>
+
+      <div class="fg">
+        <label>PAN Number</label>
+        <input
+          type="text"
+          id="pan-input"
+          placeholder="e.g. ABCDE1234F"
+          maxlength="10"
+          oninput="this.value = this.value.toUpperCase(); hideError();"
+        />
+        <div class="hint">Format: 5 letters · 4 numbers · 1 letter</div>
+      </div>
+
+      <button class="btn-primary" id="verify-btn" onclick="handleVerifyPAN()">
+        <span id="verify-btn-text">Verify PAN</span>
+        <div class="spinner" id="verify-spinner" style="border-top-color:var(--navy)"></div>
+      </button>
+    </div>
+
+    <!-- PANEL 3: Result -->
+    <div class="panel" id="panel-result">
+      <div class="success-icon">✅</div>
+      <div class="success-title">PAN Verified</div>
+      <div class="success-sub">Tenant identity confirmed against government database.</div>
+
+      <div class="verified-badge">
+        ✓ Verified · Saved to your account
+      </div>
+
+      <div class="result-card">
+        <div class="result-row"><span class="result-label">Full Name</span><span class="result-value" id="r-name">—</span></div>
+        <div class="result-row"><span class="result-label">PAN Number</span><span class="result-value gold" id="r-pan">—</span></div>
+        <div class="result-row"><span class="result-label">Date of Birth</span><span class="result-value" id="r-dob">—</span></div>
+        <div class="result-row"><span class="result-label">PAN Type</span><span class="result-value" id="r-type">—</span></div>
+        <div class="result-row"><span class="result-label">Status</span><span class="result-value green" id="r-status">—</span></div>
+      </div>
+
+      <button class="btn-primary" onclick="window.location.href='dashboard.html'">
+        Back to Dashboard
+      </button>
+      <button class="btn-outline" onclick="resetFlow()">
+        Verify Another Tenant
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL     = 'https://plumsrlhachflnsmwpsh.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsdW1zcmxoYWNoZmxuc213cHNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MzQ3MjgsImV4cCI6MjA5MDAxMDcyOH0.ioqsc76WaRv6F4_S7puz6Th9-B83D0IcDh7HYPhwRlI';
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let currentUser   = null;
+  let verificationId = null;
+  let agreementId   = null;
+
+  // ── INIT ────────────────────────────────────────────────────────────────
+  async function init() {
+    const params = new URLSearchParams(window.location.search);
+    agreementId = params.get('agreement_id') || null;
+
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) {
+      window.location.href = `login.html?next=${encodeURIComponent(window.location.href)}`;
+      return;
+    }
+    currentUser = session.user;
+
+    document.getElementById('page-loading').style.display = 'none';
+    document.getElementById('page-content').style.display = 'block';
+  }
+
+  // ── STEP 1: PAYMENT ──────────────────────────────────────────────────────
+  async function handlePay() {
+    if (!window.PropLedgerPayment) {
+      showError('Payment system not loaded. Please refresh.');
+      return;
+    }
+
+    await window.PropLedgerPayment.charge(
+      'verification',
+      {
+        agreementId: agreementId,
+        userId:      currentUser.id,
+        userName:    currentUser.user_metadata?.full_name || '',
+        userEmail:   currentUser.email || ''
+      },
+      async (paymentResult) => {
+        await createVerificationSession(paymentResult.paymentId);
+      }
+    );
+  }
+
+  async function createVerificationSession(paymentId) {
+    setBtn('pay-btn', 'pay-btn-text', 'pay-spinner', true, 'Setting up...');
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      const res = await fetch('/api/kyc/create-verification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ agreement_id: agreementId, payment_id: paymentId })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create session');
+
+      verificationId = data.verification_id;
+      goToStep(2);
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      setBtn('pay-btn', 'pay-btn-text', 'pay-spinner', false, 'Pay ₹199 · Continue');
+    }
+  }
+
+  // ── STEP 2: PAN VERIFY ───────────────────────────────────────────────────
+  async function handleVerifyPAN() {
+    const pan = document.getElementById('pan-input').value.trim().toUpperCase();
+
+    if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) {
+      showError('Invalid PAN format. Example: ABCDE1234F');
+      return;
+    }
+    if (!verificationId) {
+      showError('Session lost. Please start again.');
+      return;
+    }
+
+    setBtn('verify-btn', 'verify-btn-text', 'verify-spinner', true, 'Verifying...');
+    hideError();
+
+    try {
+      const res = await fetch('/api/kyc/pan-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pan_number: pan, verification_id: verificationId })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || data.detail || 'Verification failed');
+
+      showResult(data.data, pan);
+      goToStep(3);
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      setBtn('verify-btn', 'verify-btn-text', 'verify-spinner', false, 'Verify PAN');
+    }
+  }
+
+  // ── SHOW RESULT ──────────────────────────────────────────────────────────
+  function showResult(data, pan) {
+    document.getElementById('r-name').textContent   = data.full_name   || '—';
+    document.getElementById('r-pan').textContent    = pan;
+    document.getElementById('r-dob').textContent    = data.date_of_birth || '—';
+    document.getElementById('r-type').textContent   = data.pan_type    || '—';
+    document.getElementById('r-status').textContent = data.pan_status  || 'VALID';
+  }
+
+  // ── NAVIGATION ───────────────────────────────────────────────────────────
+  function goToStep(step) {
+    // Panels
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    const panels = ['panel-intro', 'panel-pan', 'panel-result'];
+    document.getElementById(panels[step - 1]).classList.add('active');
+
+    // Progress steps
+    ['ps1','ps2','ps3'].forEach((id, i) => {
+      const el = document.getElementById(id);
+      const numEl = document.getElementById(id + '-num');
+      if (i + 1 < step) {
+        el.className = 'step done';
+        numEl.textContent = '✓';
+      } else if (i + 1 === step) {
+        el.className = 'step active';
+        numEl.textContent = i + 1;
+      } else {
+        el.className = 'step pending';
+        numEl.textContent = i + 1;
+      }
+    });
+
+    // Step lines
+    document.getElementById('pl1').className = 'step-line' + (step > 1 ? ' done' : '');
+    document.getElementById('pl2').className = 'step-line' + (step > 2 ? ' done' : '');
+  }
+
+  function resetFlow() {
+    verificationId = null;
+    document.getElementById('pan-input').value = '';
+    hideError();
+    goToStep(1);
+  }
+
+  // ── HELPERS ──────────────────────────────────────────────────────────────
+  function showError(msg) {
+    const el = document.getElementById('main-alert');
+    document.getElementById('alert-text').textContent = msg;
+    el.classList.add('show');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function hideError() {
+    document.getElementById('main-alert').classList.remove('show');
+  }
+
+  function setBtn(btnId, textId, spinnerId, loading, text) {
+    document.getElementById(btnId).disabled = loading;
+    document.getElementById(textId).textContent = text;
+    document.getElementById(spinnerId).style.display = loading ? 'inline-block' : 'none';
+  }
+
+  init();
+</script>
+</body>
+</html>

@@ -11,6 +11,11 @@ window.PropLedgerPayment = {
     const LABELS = {
       esign:     { title: 'Aadhaar eSign',        price: '₹499', desc: 'Legally valid Aadhaar-based digital signature for both landlord and tenant. Sent directly to their email.' },
       screening: { title: 'Tenant Screening',     price: '₹199', desc: 'Full identity verification — Aadhaar, PAN, mobile, employment check. Instant report.' },
+      verification: {
+  title: 'Tenant PAN Verification',
+  price: '₹199',
+  desc: 'Verify tenant identity against the government PAN database. Instant report saved permanently to your PropLedger account.'
+},
       bundle:    { title: 'eSign + Screening',    price: '₹599', desc: 'Screen your tenant first, then send agreement for Aadhaar eSign. Best value.' }
     };
 

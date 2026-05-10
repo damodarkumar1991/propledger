@@ -190,6 +190,11 @@
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       Tenant Screening
     </a>
+    <!-- ADD after tenant-screening.html nav item -->
+<a href="tenant-verification.html" class="nav-item">
+  <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+  Tenant Verification
+</a>
     <a href="properties.html" class="nav-item">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       Properties
@@ -273,7 +278,7 @@
     </div>
 
     <!-- FEATURE CARDS -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
       <a href="tenant-screening.html" style="text-decoration:none">
         <div style="background:var(--navy-2);border:1px solid var(--green-border);border-radius:14px;padding:24px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;" onmouseover="this.style.borderColor='var(--green)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--green-border)';this.style.transform='translateY(0)'">
           <div style="position:absolute;top:12px;right:12px;background:var(--green-dim);color:var(--green);border:1px solid var(--green-border);border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;letter-spacing:0.5px;">LIVE</div>
@@ -288,7 +293,18 @@
         <div style="font-size:15px;font-weight:600;color:var(--white);">Rent Tracker</div>
         <div style="font-size:13px;color:var(--muted);margin-top:6px;line-height:1.6;">Track monthly payments, auto-send reminders via SMS & email, generate rent receipts.</div>
       </div>
+       <a href="tenant-verification.html" style="text-decoration:none">
+    <div style="background:var(--navy-2);border:1px solid rgba(96,165,250,0.25);border-radius:14px;padding:24px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;" onmouseover="this.style.borderColor='rgba(96,165,250,0.6)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(96,165,250,0.25)';this.style.transform='translateY(0)'">
+      <div style="position:absolute;top:12px;right:12px;background:rgba(96,165,250,0.1);color:#60a5fa;border:1px solid rgba(96,165,250,0.2);border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;letter-spacing:0.5px;">LIVE</div>
+      <div style="font-size:28px;margin-bottom:10px;">🪪</div>
+      <div style="font-size:15px;font-weight:600;color:var(--white);margin-bottom:6px;">Tenant Verification</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:14px;">Instant PAN verification against government database. Know your tenant before signing.</div>
+      <div style="font-size:12px;color:#60a5fa;font-weight:600;">Verify now · ₹199 →</div>
     </div>
+  </a>
+
+</div>
+    
 
   </div>
 </main>
@@ -462,6 +478,10 @@
                       ? `<button class="action-btn" style="color:var(--gold);border-color:var(--gold-border);background:var(--gold-dim)" onclick="window.location.href='esign.html?id=${a.id}'">${esignBtnLabel}</button>`
                       : ''
                     }
+                      ${a.agreement_text
+  ? `<button class="action-btn" style="color:#60a5fa;border-color:rgba(96,165,250,0.3);background:rgba(96,165,250,0.08)" onclick="window.location.href='tenant-verification.html?agreement_id=${a.id}'">🪪 Verify</button>`
+  : ''
+}
                   </div>
                 </td>
               </tr>`;
