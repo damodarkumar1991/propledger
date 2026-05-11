@@ -62,7 +62,7 @@ module.exports = async (req, res) => {
       case 'list-states':
         return await listStates(req, res);
       default:
-        return res.status(400).json({ error: 'Invalid action. Use: order-stamp, check-status, fetch-stamp-pdf, get-config' });
+        return res.status(400).json({ error: 'Invalid action v2. Use: order-stamp, check-status, fetch-stamp-pdf, get-config, list-articles, list-states' });
     }
   } catch (err) {
     console.error('eStamp API error:', err);
