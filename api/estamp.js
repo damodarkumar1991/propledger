@@ -318,8 +318,9 @@ async function fetchStampPdf(req, res) {
 
 // ─── LIST ARTICLES (from Surepass) ───────────────────────
 async function listArticles(req, res) {
+  const { state = 'DL' } = req.body;
   try {
-    const r = await fetch(`${SUREPASS_BASE}/api/v1/stamper-v2/list-articles`, {
+    const r = await fetch(`${SUREPASS_BASE}/api/v1/stamper-v2/list-articles?state=${state}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${SUREPASS_TOKEN}`,
@@ -327,7 +328,7 @@ async function listArticles(req, res) {
       }
     });
     const data = await r.json();
-    return res.status(200).json({ success: true, articles: data.data || data });
+    return res.status(200).json({ success: true, state, articles: data.data || data });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to fetch articles', details: err.message });
   }
