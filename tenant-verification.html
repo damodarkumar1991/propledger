@@ -6,8 +6,8 @@
 <title>PropLedger — Tenant Verification</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-<script src="/payment.js"></script>
+<!--<script src="https://checkout.razorpay.com/v1/checkout.js"></script>-->
+<!--<script src="/payment.js"></script>-->
 <style>
   :root{
     --navy:#0a0f1e;--navy-2:#0f1628;--navy-3:#141d35;--navy-4:#1a2444;
@@ -163,7 +163,7 @@
       </div>
 
       <button class="btn-primary" id="pay-btn" onclick="createVerificationSession('test_bypass')">
-        <span id="pay-btn-text">Pay ₹199 · Continue</span>
+        <span id="pay-btn-text">Continue to Verify →</span>
         <div class="spinner" id="pay-spinner"></div>
       </button>
       <div style="margin-top:12px;font-size:12px;color:var(--muted-2);text-align:center;">
