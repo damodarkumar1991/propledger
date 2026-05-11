@@ -62,7 +62,7 @@ module.exports = async (req, res) => {
       case 'list-states':
         return await listStates(req, res);
       default:
-        return res.status(400).json({ error: 'Invalid action v2. Use: order-stamp, check-status, fetch-stamp-pdf, get-config, list-articles, list-states' });
+        return res.status(400).json({ error: 'Invalid action. Use: order-stamp, check-status, fetch-stamp-pdf, get-config' });
     }
   } catch (err) {
     console.error('eStamp API error:', err);
@@ -191,7 +191,7 @@ async function checkStatus(req, res) {
     return res.status(400).json({ error: 'Missing client_id' });
   }
 
-  const surepassRes = await fetch(`${SUREPASS_BASE}/api/v1/stamper-v2/fetch-stamp/${client_id}`, {
+  const surepassRes = await fetch(`${SUREPASS_BASE}/api/v1/stamper-v2/order-status?client_id=${client_id}`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${SUREPASS_TOKEN}`,
@@ -199,8 +199,11 @@ async function checkStatus(req, res) {
     }
   });
 
-  const surepassData = await surepassRes.json();
-  console.log('Surepass fetch-stamp response:', JSON.stringify(surepassData));
+  const rawText = await surepassRes.text();
+  let surepassData;
+  try { surepassData = JSON.parse(rawText); } catch(e) {
+    return res.status(400).json({ error: 'Surepass returned non-JSON', details: rawText.substring(0, 300) });
+  }
 
   if (!surepassRes.ok) {
     return res.status(400).json({
@@ -248,7 +251,7 @@ async function fetchStampPdf(req, res) {
   }
 
   // First check status to get the PDF URL
-  const statusRes = await fetch(`${SUREPASS_BASE}/api/v1/stamper-v2/fetch-stamp/${client_id}`, {
+  const statusRes = await fetch(`${SUREPASS_BASE}/api/v1/stamper-v2/order-status?client_id=${client_id}`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${SUREPASS_TOKEN}`,
@@ -256,7 +259,10 @@ async function fetchStampPdf(req, res) {
     }
   });
 
-  const statusData = await statusRes.json();
+  let statusData;
+  try { statusData = await statusRes.json(); } catch(e) {
+    return res.status(400).json({ error: 'Surepass returned invalid response' });
+  }
   const stampData = statusData.data || {};
 
   if (stampData.status !== 'available') {
