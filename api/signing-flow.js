@@ -399,9 +399,10 @@ async function handleLandlordSigned(req, res) {
   }
 
   const tenantToken = tenantSignData.data.client_id;
-  const tenantUrl = tenantSignData.data.url
-    ? `https://esign-client.surepass.app/?token=${tenantSignData.data.url}&window_name=PropLedger%20eSign`
-    : null;
+  const rawTenantUrl = tenantSignData.data.url || '';
+  const tenantUrl = rawTenantUrl.startsWith('http')
+    ? rawTenantUrl
+    : `https://esign-client.surepass.app/?token=${rawTenantUrl}&window_name=PropLedger%20eSign`;
 
   // Update DB record
   await supabase
