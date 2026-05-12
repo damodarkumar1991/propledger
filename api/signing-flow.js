@@ -201,6 +201,8 @@ async function initLandlordSign(req, res) {
   }
 
   // Upload PDF to Surepass
+  // Attach PDF to tenant session — try Supabase URL first, fall back to Surepass signed URL
+  // Upload PDF to Surepass
   const uploadRes = await fetch(`${SUREPASS_BASE}/api/v1/esign/upload-pdf`, {
     method: 'POST',
     headers: {
@@ -209,7 +211,6 @@ async function initLandlordSign(req, res) {
     },
     body: JSON.stringify({ pdf_url, pdf_pre_uploaded: true })
   });
-
   const uploadData = await uploadRes.json();
   console.log('Surepass PDF upload:', JSON.stringify(uploadData));
 
@@ -397,12 +398,25 @@ async function handleLandlordSigned(req, res) {
       details: tenantSignData.message || tenantSignData
     });
   }
+const tenantToken = tenantSignData.data.client_id;
 
-  const tenantToken = tenantSignData.data.client_id;
-  const rawTenantUrl = tenantSignData.data.url || '';
-  const tenantUrl = rawTenantUrl.startsWith('http')
-    ? rawTenantUrl
-    : `https://esign-client.surepass.app/?token=${rawTenantUrl}&window_name=PropLedger%20eSign`;
+  // Attach PDF to tenant session
+  await fetch(`${SUREPASS_BASE}/api/v1/esign/upload-pdf`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${SUREPASS_TOKEN}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      client_id: tenantToken,
+      link: landlordSignedUrl
+    })
+  });
+  console.log('PDF attached to tenant session:', tenantToken);
+
+  const tenantUrl = tenantSignData.data.url
+    ? `https://esign-client.surepass.app/?token=${tenantSignData.data.url}&window_name=PropLedger%20eSign`
+    : null;
 
   // Update DB record
   await supabase
