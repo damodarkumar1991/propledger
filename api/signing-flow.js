@@ -308,19 +308,27 @@ async function handleLandlordSigned(req, res) {
     return res.status(400).json({ error: 'Missing agreement_id or landlord_client_id' });
   }
 
-  // Download landlord-signed PDF from Surepass
-  const pdfRes = await fetch(`${SUREPASS_BASE}/api/v1/esign/pdf/${landlord_client_id}`, {
+// Get signed PDF link from Surepass
+  const docRes = await fetch(`${SUREPASS_BASE}/api/v1/esign/get-signed-document/${landlord_client_id}`, {
     method: 'GET',
     headers: { 'Authorization': `Bearer ${SUREPASS_TOKEN}` }
   });
+  const docData = await docRes.json();
+  console.log('Get signed doc response:', JSON.stringify(docData));
 
-  if (!pdfRes.ok) {
+  const signedPdfLink = docData.data?.url || docData.data?.link || docData.data?.pdf_url;
+  if (!signedPdfLink) {
     return res.status(400).json({
-      error: 'Could not download landlord-signed PDF',
-      details: `Status: ${pdfRes.status}`
+      error: 'Could not get landlord-signed PDF link',
+      details: docData.message || JSON.stringify(docData)
     });
   }
 
+  // Download the actual PDF
+  const pdfRes = await fetch(signedPdfLink);
+  if (!pdfRes.ok) {
+    return res.status(400).json({ error: 'Could not download landlord-signed PDF from link', details: `Status: ${pdfRes.status}` });
+  }
   const signedPdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
   console.log(`Landlord-signed PDF downloaded: ${signedPdfBuffer.length} bytes`);
 
@@ -438,19 +446,26 @@ async function handleTenantSigned(req, res) {
     return res.status(400).json({ error: 'Missing agreement_id or tenant_client_id' });
   }
 
-  // Download final dual-signed PDF from Surepass
-  const pdfRes = await fetch(`${SUREPASS_BASE}/api/v1/esign/pdf/${tenant_client_id}`, {
+ // Get final signed PDF link from Surepass
+  const docRes = await fetch(`${SUREPASS_BASE}/api/v1/esign/get-signed-document/${tenant_client_id}`, {
     method: 'GET',
     headers: { 'Authorization': `Bearer ${SUREPASS_TOKEN}` }
   });
+  const docData = await docRes.json();
+  console.log('Get final signed doc response:', JSON.stringify(docData));
 
-  if (!pdfRes.ok) {
+  const finalPdfLink = docData.data?.url || docData.data?.link || docData.data?.pdf_url;
+  if (!finalPdfLink) {
     return res.status(400).json({
-      error: 'Could not download final signed PDF',
-      details: `Status: ${pdfRes.status}`
+      error: 'Could not get final signed PDF link',
+      details: docData.message || JSON.stringify(docData)
     });
   }
 
+  const pdfRes = await fetch(finalPdfLink);
+  if (!pdfRes.ok) {
+    return res.status(400).json({ error: 'Could not download final signed PDF from link', details: `Status: ${pdfRes.status}` });
+  }
   const finalPdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
   console.log(`Final signed PDF: ${finalPdfBuffer.length} bytes`);
 
