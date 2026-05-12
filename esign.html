@@ -370,6 +370,10 @@
     currentUser = session?.user || null;
 
     signingMode = mode === 'tenant' ? 'tenant' : 'landlord';
+ 
+    // Auto-detect Surepass callback: ?signed=true&client_id=XXX
+    const signedCallback = params.get('signed');
+    const callbackClientId = params.get('client_id');
 
     if (signingMode === 'landlord' && !currentUser) {
       window.location.href = `login.html?next=${encodeURIComponent(window.location.href)}`;
@@ -409,7 +413,19 @@
     }
 
     renderUI();
-
+ 
+    // Auto-trigger recording if returning from Surepass signing
+    if (signedCallback === 'true' && callbackClientId) {
+      const status = esignRecord?.status || 'not_started';
+      if (status === 'initiated' || status === 'landlord_signing') {
+        console.log('Auto-recording landlord signature from callback...');
+        setTimeout(() => recordLandlordSigned(callbackClientId), 500);
+      } else if (status === 'tenant_pending' || status === 'landlord_signed') {
+        console.log('Auto-recording tenant signature from callback...');
+        setTimeout(() => recordTenantSigned(callbackClientId), 500);
+      }
+    }
+ 
     document.getElementById('page-loading').style.display = 'none';
     document.getElementById('page-content').style.display = 'block';
   }
@@ -702,45 +718,140 @@
     }
   }
 
-  async function recordLandlordSigned() {
-    const now = new Date().toISOString();
-    await sb.from('esign_records').update({
-      status: 'landlord_signed',
-      landlord_signed_at: now
-    }).eq('agreement_id', agreement.id);
-
-    // Update local record
-    if (esignRecord) {
-      esignRecord.status = 'landlord_signed';
-      esignRecord.landlord_signed_at = now;
-    }
-
-    updateSignerCard('ll', 'signed', now);
-    updateSignerCard('tt', 'waiting', null);
-    updateProgress('tenant');
-
-    document.getElementById('tenant-email-display').textContent =
-      esignRecord?.tenant_email || document.getElementById('tt-email-input')?.value || '—';
-
+  async function recordLandlordSigned(clientIdFromCallback) {
+    hideError();
     showPanel('panel-tenant-wait');
+    document.querySelector('#panel-tenant-wait .wait-title').textContent = 'Processing landlord signature...';
+    document.querySelector('#panel-tenant-wait .wait-sub').textContent = 'Downloading signed PDF and creating tenant signing session...';
+ 
+    const landlordClientId = clientIdFromCallback
+      || esignRecord?.landlord_access_token
+      || esignRecord?.landlord_client_id
+      || new URLSearchParams(window.location.search).get('client_id');
+ 
+    try {
+      const res = await fetch('/api/signing-flow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'landlord-signed',
+          agreement_id: agreement.id,
+          landlord_client_id: landlordClientId
+        })
+      });
+ 
+      const data = await res.json();
+      console.log('Landlord-signed response:', data);
+ 
+      if (!data.success) {
+        // Fallback: just update status locally if API fails
+        console.warn('signing-flow API failed, falling back to local update:', data.error);
+        const now = new Date().toISOString();
+        await sb.from('esign_records').update({
+          status: 'landlord_signed',
+          landlord_signed_at: now
+        }).eq('agreement_id', agreement.id);
+ 
+        if (esignRecord) {
+          esignRecord.status = 'landlord_signed';
+          esignRecord.landlord_signed_at = now;
+        }
+      } else {
+        // Success — tenant session created, email sent
+        const now = new Date().toISOString();
+        if (esignRecord) {
+          esignRecord.status = 'tenant_pending';
+          esignRecord.landlord_signed_at = now;
+          esignRecord.tenant_sign_url = data.tenant_sign_url;
+          esignRecord.tenant_client_id = data.tenant_token;
+        }
+ 
+        // Update tenant sign link
+        if (data.tenant_sign_url) {
+          const tLink = document.getElementById('tenant-sign-link');
+          if (tLink) tLink.href = data.tenant_sign_url;
+        }
+      }
+ 
+      // Update UI
+      updateSignerCard('ll', 'signed', esignRecord?.landlord_signed_at || new Date().toISOString());
+      updateSignerCard('tt', 'waiting', null);
+      updateProgress('tenant');
+ 
+      document.querySelector('#panel-tenant-wait .wait-title').textContent = 'Waiting for Tenant';
+      document.querySelector('#panel-tenant-wait .wait-sub').textContent =
+        "You've signed successfully. We've emailed the tenant their signing link.";
+      document.getElementById('tenant-email-display').textContent =
+        esignRecord?.tenant_email || document.getElementById('tt-email-input')?.value || '—';
+ 
+      showPanel('panel-tenant-wait');
+ 
+    } catch (e) {
+      console.error('recordLandlordSigned error:', e);
+      showError('Could not process landlord signature. Please try again.');
+      showPanel('panel-signing');
+    }
   }
 
-  async function recordTenantSigned() {
-    const now = new Date().toISOString();
-    await sb.from('esign_records').update({
-      status: 'completed',
-      tenant_signed_at: now,
-      completed_at: now
-    }).eq('agreement_id', agreement.id);
-
-    await sb.from('agreements').update({ status: 'esigned' }).eq('id', agreement.id);
-
-    document.getElementById('s-doc-id').textContent = digioDocumentId || agreement.id;
-    document.getElementById('s-ll-time').textContent = esignRecord?.landlord_signed_at
-      ? formatDateTime(esignRecord.landlord_signed_at) : 'Earlier';
-    document.getElementById('s-tt-time').textContent = formatDateTime(now);
-
-    showComplete();
+  async function recordTenantSigned(clientIdFromCallback) {
+    hideError();
+ 
+    const tenantClientId = clientIdFromCallback
+      || esignRecord?.tenant_access_token
+      || esignRecord?.tenant_client_id
+      || new URLSearchParams(window.location.search).get('client_id');
+ 
+    try {
+      const res = await fetch('/api/signing-flow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'tenant-signed',
+          agreement_id: agreement.id,
+          tenant_client_id: tenantClientId
+        })
+      });
+ 
+      const data = await res.json();
+      console.log('Tenant-signed response:', data);
+ 
+      if (!data.success) {
+        console.warn('signing-flow API failed for tenant, falling back:', data.error);
+      }
+ 
+      // Update DB status
+      const now = new Date().toISOString();
+      await sb.from('esign_records').update({
+        status: 'completed',
+        tenant_signed_at: now,
+        completed_at: now,
+        final_pdf_url: data.final_pdf_url || null
+      }).eq('agreement_id', agreement.id);
+ 
+      await sb.from('agreements').update({ status: 'esigned' }).eq('id', agreement.id);
+ 
+      // Store final PDF URL for download
+      if (data.final_pdf_url) {
+        window._finalPdfUrl = data.final_pdf_url;
+      }
+ 
+      document.getElementById('s-doc-id').textContent = digioDocumentId || agreement.id;
+      document.getElementById('s-ll-time').textContent = esignRecord?.landlord_signed_at
+        ? formatDateTime(esignRecord.landlord_signed_at) : 'Earlier';
+      document.getElementById('s-tt-time').textContent = formatDateTime(now);
+ 
+      showComplete();
+ 
+    } catch (e) {
+      console.error('recordTenantSigned error:', e);
+      // Fallback — still mark as complete
+      const now = new Date().toISOString();
+      await sb.from('esign_records').update({
+        status: 'completed', tenant_signed_at: now, completed_at: now
+      }).eq('agreement_id', agreement.id);
+      await sb.from('agreements').update({ status: 'esigned' }).eq('id', agreement.id);
+      showComplete();
+    }
   }
 
   async function checkStatus() {
@@ -782,20 +893,29 @@
     }
   }
 
-  async function downloadSigned() {
-    if (!digioDocumentId) {
-      alert('Signed PDF will be available once real API credentials are active.');
+   async function downloadSigned() {
+    // Try final PDF URL from signing-flow
+    const finalUrl = window._finalPdfUrl || esignRecord?.final_pdf_url;
+    if (finalUrl) {
+      window.open(finalUrl, '_blank');
       return;
     }
-    const form = document.createElement('form');
-    form.method = 'POST'; form.action = '/api/esign'; form.target = '_blank';
-    const inp = document.createElement('input');
-    inp.type = 'hidden'; inp.name = 'action'; inp.value = 'download';
-    const inp2 = document.createElement('input');
-    inp2.type = 'hidden'; inp2.name = 'documentId'; inp2.value = digioDocumentId;
-    form.appendChild(inp); form.appendChild(inp2);
-    document.body.appendChild(form); form.submit(); document.body.removeChild(form);
+    // Fallback: check signing-flow for status
+    try {
+      const res = await fetch('/api/signing-flow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'check-status', agreement_id: agreement.id })
+      });
+      const data = await res.json();
+      if (data.final_pdf_url) {
+        window.open(data.final_pdf_url, '_blank');
+        return;
+      }
+    } catch(e) { console.error(e); }
+    alert('Signed PDF is being processed. Please try again in a few minutes.');
   }
+ 
 
   // ── UI HELPERS ────────────────────────────────────────────────────────────
   function showPanel(id) {

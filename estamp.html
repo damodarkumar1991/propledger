@@ -504,27 +504,19 @@
           Stamp paper details
         </div>
 
-        <!-- Stamp Type -->
+        <!-- Document Type (loaded dynamically per state) -->
         <div class="form-group">
           <label>Document type</label>
-          <div class="stamp-type-grid">
-            <label class="stamp-type-option selected" onclick="selectType(this, 22088)">
-              <input type="radio" name="articleId" value="22088" checked>
-              <div class="type-name">Leave & License</div>
-              <div class="type-desc">Rental agreements</div>
-            </label>
-            <label class="stamp-type-option" onclick="selectType(this, 3969)">
-              <input type="radio" name="articleId" value="3969">
-              <div class="type-name">General</div>
-              <div class="type-desc">Other agreements</div>
-            </label>
-          </div>
+          <select id="articleSelect" onchange="selectArticleFromDropdown()" disabled>
+            <option value="">← Select a state first</option>
+          </select>
+          <div class="hint" id="articleHint">Articles will load when you select a state</div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
             <label>State</label>
-            <select id="stateSelect" onchange="updatePreview()">
+            <select id="stateSelect" onchange="onStateChange()">
               <option value="">Select state</option>
             </select>
           </div>
@@ -711,7 +703,8 @@
 
     // ── STATE ───────────────────────────────
     let currentUser = null;
-    let selectedArticle = 22088;
+    let selectedArticle = null;
+    let selectedArticleName = '';
     let stampClientId = null;
     let pollTimer = null;
     let pollAttempts = 0;
@@ -728,11 +721,6 @@
       OD: 'Odisha', PY: 'Puducherry', PB: 'Punjab', RJ: 'Rajasthan',
       SK: 'Sikkim', TN: 'Tamil Nadu', TS: 'Telangana', TR: 'Tripura',
       UP: 'Uttar Pradesh', UK: 'Uttarakhand', WB: 'West Bengal'
-    };
-
-    const ARTICLES = {
-      22088: 'Leave & License Agreement',
-      3969:  'General Agreement'
     };
 
     // ── INIT ────────────────────────────────
@@ -763,6 +751,7 @@
       if (params.get('second_party')) document.getElementById('secondParty').value = params.get('second_party');
       if (params.get('state')) {
         document.getElementById('stateSelect').value = params.get('state');
+        loadArticles(params.get('state')); // Fetch articles for pre-filled state
       }
       if (params.get('amount')) {
         document.getElementById('stampAmount').value = params.get('amount');
@@ -776,10 +765,82 @@
     });
 
     // ── FORM HELPERS ────────────────────────
-    function selectType(el, articleId) {
-      document.querySelectorAll('.stamp-type-option').forEach(o => o.classList.remove('selected'));
-      el.classList.add('selected');
-      selectedArticle = articleId;
+    // ── DYNAMIC ARTICLE LOADING ───────────
+    function onStateChange() {
+      const state = document.getElementById('stateSelect').value;
+      if (state) {
+        loadArticles(state);
+      } else {
+        const sel = document.getElementById('articleSelect');
+        sel.innerHTML = '<option value="">← Select a state first</option>';
+        sel.disabled = true;
+        selectedArticle = null;
+        selectedArticleName = '';
+      }
+      updatePreview();
+    }
+
+    async function loadArticles(stateCode) {
+      const sel = document.getElementById('articleSelect');
+      const hint = document.getElementById('articleHint');
+      sel.innerHTML = '<option value="">Loading articles...</option>';
+      sel.disabled = true;
+      hint.textContent = 'Fetching available document types from SHCIL...';
+
+      try {
+        const res = await fetch('/api/estamp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'list-articles', state: stateCode })
+        });
+        const data = await res.json();
+
+        if (data.success && Array.isArray(data.articles)) {
+          sel.innerHTML = '<option value="">Select document type</option>';
+          
+          // Sort: put "Agreement" types first
+          const sorted = data.articles.sort((a, b) => {
+            const aIsAgreement = a.article_name.toLowerCase().includes('agreement') ? 0 : 1;
+            const bIsAgreement = b.article_name.toLowerCase().includes('agreement') ? 0 : 1;
+            return aIsAgreement - bIsAgreement || a.article_name.localeCompare(b.article_name);
+          });
+
+          sorted.forEach(art => {
+            const opt = document.createElement('option');
+            opt.value = art.article_id;
+            opt.textContent = `${art.article_name} (${art.article_code})`;
+            opt.dataset.name = art.article_name;
+            sel.appendChild(opt);
+          });
+
+          sel.disabled = false;
+          hint.textContent = `${data.articles.length} document types available for ${STATES[stateCode] || stateCode}`;
+
+          // Auto-select "General Agreement" or first agreement type
+          const agreementOpt = sorted.find(a => 
+            a.article_name.toLowerCase().includes('general agreement') ||
+            a.article_name.toLowerCase().includes('agreement')
+          );
+          if (agreementOpt) {
+            sel.value = agreementOpt.article_id;
+            selectArticleFromDropdown();
+          }
+        } else {
+          sel.innerHTML = '<option value="">No articles found for this state</option>';
+          hint.textContent = data.articles?.message || 'Could not load articles';
+        }
+      } catch (err) {
+        sel.innerHTML = '<option value="">Error loading articles</option>';
+        hint.textContent = 'Failed to fetch — check connection';
+        console.error('Article load error:', err);
+      }
+    }
+
+    function selectArticleFromDropdown() {
+      const sel = document.getElementById('articleSelect');
+      selectedArticle = sel.value ? Number(sel.value) : null;
+      const selectedOpt = sel.options[sel.selectedIndex];
+      selectedArticleName = selectedOpt?.dataset?.name || selectedOpt?.textContent || '';
       updatePreview();
     }
 
@@ -800,7 +861,7 @@
       const amount = parseInt(document.getElementById('stampAmount').value) || 0;
       const firstName = document.getElementById('firstParty').value.trim();
 
-      const hasData = state && amount >= 10;
+      const hasData = state && amount >= 10 && selectedArticle;
 
       document.getElementById('stampPreview').style.display = hasData ? 'block' : 'none';
       document.getElementById('costBreakdown').style.display = hasData ? 'block' : 'none';
@@ -809,7 +870,7 @@
       if (hasData) {
         document.getElementById('previewAmount').textContent = `₹${amount.toLocaleString('en-IN')}`;
         document.getElementById('previewState').textContent = STATES[state] || state;
-        document.getElementById('previewType').textContent = ARTICLES[selectedArticle] || '';
+        document.getElementById('previewType').textContent = selectedArticleName;
         document.getElementById('costStamp').textContent = `₹${amount.toLocaleString('en-IN')}`;
         document.getElementById('costTotal').textContent = `₹${(amount + SERVICE_FEE).toLocaleString('en-IN')}`;
       }
@@ -845,6 +906,7 @@
       const firstName = document.getElementById('firstParty').value.trim();
 
       if (!state) return showError('Please select a state.');
+      if (!selectedArticle) return showError('Please select a document type.');
       if (!amount || amount < 10) return showError('Stamp duty must be at least ₹10.');
       if (!firstName) return showError('Please enter the first party (landlord) name.');
 
