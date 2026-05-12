@@ -725,6 +725,8 @@
     document.querySelector('#panel-tenant-wait .wait-sub').textContent = 'Downloading signed PDF and creating tenant signing session...';
  
     const landlordClientId = clientIdFromCallback
+      || landlordAccessToken
+      || digioDocumentId
       || esignRecord?.landlord_access_token
       || esignRecord?.landlord_client_id
       || new URLSearchParams(window.location.search).get('client_id');
