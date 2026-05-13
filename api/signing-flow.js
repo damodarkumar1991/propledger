@@ -372,7 +372,7 @@ async function handleLandlordSigned(req, res) {
     },
     body: JSON.stringify({
       pdf_pre_uploaded: true,
-      pdf_url: landlordSignedUrl,
+      pdf_url: signedPdfLink,
       sign_type: 'aadhaar',
       auth_mode: 1,
       expire_in_days: 7,
@@ -409,7 +409,7 @@ const tenantToken = tenantSignData.data.client_id;
     },
     body: JSON.stringify({
       client_id: tenantToken,
-      link: landlordSignedUrl
+      link: signedPdfLink
     })
   });
   console.log('PDF attached to tenant session:', tenantToken);
