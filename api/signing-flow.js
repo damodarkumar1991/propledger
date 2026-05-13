@@ -363,8 +363,21 @@ async function handleLandlordSigned(req, res) {
     return res.status(404).json({ error: 'Signing record not found' });
   }
 
+  // Upload PDF to Surepass FIRST (same pattern as landlord)
+  const tenantUploadRes = await fetch(`${SUREPASS_BASE}/api/v1/esign/upload-pdf`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${SUREPASS_TOKEN}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ pdf_url: signedPdfLink, pdf_pre_uploaded: true })
+  });
+  const tenantUploadData = await tenantUploadRes.json();
+  console.log('Tenant PDF pre-upload:', JSON.stringify(tenantUploadData));
+
   // Create tenant eSign session using the landlord-signed PDF
   const tenantSignRes = await fetch(`${SUREPASS_BASE}/api/v1/esign/initialize`, {
+  
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${SUREPASS_TOKEN}`,
@@ -400,23 +413,11 @@ async function handleLandlordSigned(req, res) {
   }
 const tenantToken = tenantSignData.data.client_id;
 
-  // Attach PDF to tenant session
-  await fetch(`${SUREPASS_BASE}/api/v1/esign/upload-pdf`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${SUREPASS_TOKEN}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      client_id: tenantToken,
-      link: signedPdfLink
-    })
-  });
-  console.log('PDF attached to tenant session:', tenantToken);
 
-  const tenantUrl = tenantSignData.data.url
-    ? `https://esign-client.surepass.app/?token=${tenantSignData.data.url}&window_name=PropLedger%20eSign`
-    : null;
+const rawTenantUrl = tenantSignData.data.url || '';
+  const tenantUrl = rawTenantUrl.startsWith('http')
+    ? rawTenantUrl
+    : `https://esign-client.surepass.app/?token=${rawTenantUrl}&window_name=PropLedger%20eSign`;
 
   // Update DB record
   await supabase
