@@ -363,21 +363,27 @@ async function handleLandlordSigned(req, res) {
     return res.status(404).json({ error: 'Signing record not found' });
   }
 
-  // Upload PDF to Surepass FIRST (same pattern as landlord)
-  const tenantUploadRes = await fetch(`${SUREPASS_BASE}/api/v1/esign/upload-pdf`, {
+  // Upload actual PDF bytes to Surepass via file upload
+  const FormData = require('form-data');
+  const form = new FormData();
+  form.append('file', signedPdfBuffer, { filename: 'agreement.pdf', contentType: 'application/pdf' });
+
+  const fileUploadRes = await fetch(`${SUREPASS_BASE}/api/v1/files/esign/upload`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${SUREPASS_TOKEN}`,
-      'Content-Type': 'application/json'
+      ...form.getHeaders()
     },
-    body: JSON.stringify({ pdf_url: signedPdfLink, pdf_pre_uploaded: true })
+    body: form
   });
-  const tenantUploadData = await tenantUploadRes.json();
-  console.log('Tenant PDF pre-upload:', JSON.stringify(tenantUploadData));
+  const fileUploadData = await fileUploadRes.json();
+  console.log('File upload response:', JSON.stringify(fileUploadData));
 
-  // Create tenant eSign session using the landlord-signed PDF
+  const uploadedPdfUrl = fileUploadData.data?.url || fileUploadData.data?.link || signedPdfLink;
+  console.log('Using PDF URL for tenant:', uploadedPdfUrl);
+
+  // Create tenant eSign session using the uploaded PDF
   const tenantSignRes = await fetch(`${SUREPASS_BASE}/api/v1/esign/initialize`, {
-  
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${SUREPASS_TOKEN}`,
@@ -385,7 +391,7 @@ async function handleLandlordSigned(req, res) {
     },
     body: JSON.stringify({
       pdf_pre_uploaded: true,
-      pdf_url: signedPdfLink,
+      pdf_url: uploadedPdfUrl,
       sign_type: 'aadhaar',
       auth_mode: 1,
       expire_in_days: 7,
