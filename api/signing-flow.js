@@ -195,7 +195,7 @@ async function handleLandlordSigned(req, res) {
   // Step A: Initialize tenant session
   const tenantInitRes = await axios.post(`${SUREPASS_BASE}/api/v1/esign/initialize`, {
     pdf_pre_uploaded: true,
-    pdf_url: landlordSignedUrl,
+    pdf_url: landlordSignedUrl + '?t=' + Date.now(),
     sign_type: 'aadhaar',
     auth_mode: 1,
     expire_in_days: 7,
@@ -214,7 +214,13 @@ async function handleLandlordSigned(req, res) {
   if (!tenantSignData.data) return res.status(400).json({ error: 'Failed to create tenant eSign session', details: tenantSignData.message });
 
   const tenantToken = tenantSignData.data.client_id;
-
+// Step B: Attach PDF to tenant session with cache-busting URL
+  const cacheBustUrl = landlordSignedUrl + '?t=' + Date.now();
+  const attachRes = await axios.post(`${SUREPASS_BASE}/api/v1/esign/upload-pdf`, {
+    client_id: tenantToken,
+    link: cacheBustUrl
+  }, { headers: spHeaders, timeout: 30000 });
+  console.log('Tenant PDF attach response:', JSON.stringify(attachRes.data));
 
   const rawTenantUrl = tenantSignData.data.url || '';
   const tenantUrl = rawTenantUrl.startsWith('http')
