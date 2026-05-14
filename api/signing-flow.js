@@ -192,16 +192,27 @@ async function handleLandlordSigned(req, res) {
   if (!signRecord) return res.status(404).json({ error: 'Signing record not found' });
 
   // ── TENANT SESSION ──
+  // Count pages from the signed PDF for signature on every page
+  const { PDFDocument } = require('pdf-lib');
+  const pdfDoc = await PDFDocument.load(signedPdfBuffer);
+  const pageCount = pdfDoc.getPageCount();
+  const tenantPositions = {};
+  for (let i = 1; i <= pageCount; i++) {
+    tenantPositions[i] = [{ x: 350, y: 50 }];  // bottom-right on every page
+  }
+  console.log(`Tenant signature positions set for ${pageCount} pages`);
+
   // Step A: Initialize tenant session
+  const cacheBustUrl = landlordSignedUrl + '?t=' + Date.now();
   const tenantInitRes = await axios.post(`${SUREPASS_BASE}/api/v1/esign/initialize`, {
     pdf_pre_uploaded: true,
-    pdf_url: landlordSignedUrl + '?t=' + Date.now(),
+    pdf_url: cacheBustUrl,
     sign_type: 'aadhaar',
     auth_mode: 1,
     expire_in_days: 7,
     config: {
       reason: 'Signing Leave & License Agreement as Licensee',
-      positions: { 1: [{ x: 350, y: 700 }] }
+      positions: tenantPositions
     },
     prefill_options: {
       full_name: signRecord.tenant_name || '',
@@ -214,8 +225,8 @@ async function handleLandlordSigned(req, res) {
   if (!tenantSignData.data) return res.status(400).json({ error: 'Failed to create tenant eSign session', details: tenantSignData.message });
 
   const tenantToken = tenantSignData.data.client_id;
-// Step B: Attach PDF to tenant session with cache-busting URL
-  const cacheBustUrl = landlordSignedUrl + '?t=' + Date.now();
+
+  // Step B: Attach PDF to tenant session
   const attachRes = await axios.post(`${SUREPASS_BASE}/api/v1/esign/upload-pdf`, {
     client_id: tenantToken,
     link: cacheBustUrl
