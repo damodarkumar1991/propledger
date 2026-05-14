@@ -215,12 +215,6 @@ async function handleLandlordSigned(req, res) {
 
   const tenantToken = tenantSignData.data.client_id;
 
-  // Step B: Attach PDF to tenant session (same pattern as working esign.js)
-  const attachRes = await axios.post(`${SUREPASS_BASE}/api/v1/esign/upload-pdf`, {
-    client_id: tenantToken,
-    link: landlordSignedUrl
-  }, { headers: spHeaders, timeout: 30000 });
-  console.log('Tenant PDF attach response:', JSON.stringify(attachRes.data));
 
   const rawTenantUrl = tenantSignData.data.url || '';
   const tenantUrl = rawTenantUrl.startsWith('http')
