@@ -1,10 +1,6 @@
 // api/signing-flow.js — PropLedger Sequential Signing Pipeline
-// Actions: prepare, init-landlord, landlord-signed, tenant-signed, check-status
-//
-// Flow: prepare → init-landlord → [landlord signs] → landlord-signed →
-//       [tenant signs] → tenant-signed → done (emails sent)
-
 const { createClient } = require('@supabase/supabase-js');
+const axios = require('axios');
 
 const SUREPASS_BASE = 'https://kyc-api.surepass.app';
 const SUREPASS_TOKEN = process.env.SUREPASS_TOKEN;
@@ -15,6 +11,11 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+const spHeaders = {
+  'Authorization': `Bearer ${SUREPASS_TOKEN}`,
+  'Content-Type': 'application/json'
+};
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -47,41 +48,21 @@ module.exports = async (req, res) => {
 };
 
 // ─── STEP 1: PREPARE PDF ─────────────────────────────────
-// Merges stamp PDF (if any) with agreement PDF using pdf-lib
-// Uploads final PDF to Supabase Storage
 async function preparePdf(req, res) {
   const { agreement_id, stamp_pdf_url } = req.body;
+  if (!agreement_id) return res.status(400).json({ error: 'Missing agreement_id' });
 
-  if (!agreement_id) {
-    return res.status(400).json({ error: 'Missing agreement_id' });
-  }
-
-  // Fetch agreement from DB
   const { data: agreement, error: agError } = await supabase
-    .from('agreements')
-    .select('*')
-    .eq('id', agreement_id)
-    .maybeSingle();
+    .from('agreements').select('*').eq('id', agreement_id).maybeSingle();
+  if (agError || !agreement) return res.status(404).json({ error: 'Agreement not found' });
 
-  if (agError || !agreement) {
-    return res.status(404).json({ error: 'Agreement not found' });
-  }
-
-  // Generate agreement PDF via existing endpoint
   const pdfRes = await fetch(`${BASE_URL}/api/generate-agreement`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      action: 'generate-pdf',
-      agreement_text: agreement.agreement_text,
-      agreement_id
-    })
+    body: JSON.stringify({ action: 'generate-pdf', agreement_text: agreement.agreement_text, agreement_id })
   });
 
   let agreementPdfBuffer;
-
-  // If the generate-agreement endpoint supports PDF output, use it
-  // Otherwise, we'll use the existing PDF from Supabase if available
   if (pdfRes.ok) {
     const pdfData = await pdfRes.json();
     if (pdfData.pdf_url) {
@@ -90,372 +71,184 @@ async function preparePdf(req, res) {
     }
   }
 
-  // Fallback: check if PDF already exists in storage
   if (!agreementPdfBuffer) {
     const existingPath = `agreements/${agreement_id}.pdf`;
-    const { data: existingUrl } = supabase.storage
-      .from('agreements')
-      .getPublicUrl(existingPath);
-
+    const { data: existingUrl } = supabase.storage.from('agreements').getPublicUrl(existingPath);
     if (existingUrl?.publicUrl) {
       try {
         const dlRes = await fetch(existingUrl.publicUrl);
-        if (dlRes.ok) {
-          agreementPdfBuffer = Buffer.from(await dlRes.arrayBuffer());
-        }
-      } catch (e) {
-        console.log('No existing PDF found, will need to generate');
-      }
+        if (dlRes.ok) agreementPdfBuffer = Buffer.from(await dlRes.arrayBuffer());
+      } catch (e) { console.log('No existing PDF found'); }
     }
   }
 
-  if (!agreementPdfBuffer) {
-    return res.status(400).json({
-      error: 'Could not get agreement PDF. Generate agreement first.'
-    });
-  }
+  if (!agreementPdfBuffer) return res.status(400).json({ error: 'Could not get agreement PDF.' });
 
   let finalPdfBuffer = agreementPdfBuffer;
 
-  // If stamp PDF exists, merge stamp pages BEFORE agreement pages
   if (stamp_pdf_url) {
     try {
       const { PDFDocument } = require('pdf-lib');
-
       const stampRes = await fetch(stamp_pdf_url);
       if (!stampRes.ok) throw new Error('Could not download stamp PDF');
       const stampBuffer = Buffer.from(await stampRes.arrayBuffer());
-
       const stampDoc = await PDFDocument.load(stampBuffer);
       const agreementDoc = await PDFDocument.load(agreementPdfBuffer);
       const mergedDoc = await PDFDocument.create();
-
-      // Stamp pages first
       const stampPages = await mergedDoc.copyPages(stampDoc, stampDoc.getPageIndices());
       stampPages.forEach(page => mergedDoc.addPage(page));
-
-      // Then agreement pages
       const agreementPages = await mergedDoc.copyPages(agreementDoc, agreementDoc.getPageIndices());
       agreementPages.forEach(page => mergedDoc.addPage(page));
-
       finalPdfBuffer = Buffer.from(await mergedDoc.save());
-      console.log(`Merged PDF: ${stampPages.length} stamp + ${agreementPages.length} agreement pages`);
-
-    } catch (mergeErr) {
-      console.error('PDF merge failed:', mergeErr.message);
-      // Continue with agreement-only PDF
-    }
+    } catch (mergeErr) { console.error('PDF merge failed:', mergeErr.message); }
   }
 
-  // Upload final PDF to Supabase Storage
   const fileName = `signing/${agreement_id}_ready.pdf`;
-  const { error: uploadError } = await supabase.storage
-    .from('agreements')
-    .upload(fileName, finalPdfBuffer, {
-      contentType: 'application/pdf',
-      upsert: true
-    });
+  const { error: uploadError } = await supabase.storage.from('agreements')
+    .upload(fileName, finalPdfBuffer, { contentType: 'application/pdf', upsert: true });
+  if (uploadError) return res.status(500).json({ error: 'Failed to upload PDF' });
 
-  if (uploadError) {
-    console.error('Upload error:', uploadError);
-    return res.status(500).json({ error: 'Failed to upload PDF' });
-  }
+  const { data: urlData } = supabase.storage.from('agreements').getPublicUrl(fileName);
+  await supabase.from('agreements').update({
+    pdf_url: urlData.publicUrl, has_stamp: !!stamp_pdf_url, status: 'ready_for_signing'
+  }).eq('id', agreement_id);
 
-  const { data: urlData } = supabase.storage
-    .from('agreements')
-    .getPublicUrl(fileName);
-
-  // Update agreement record
-  await supabase
-    .from('agreements')
-    .update({
-      pdf_url: urlData.publicUrl,
-      has_stamp: !!stamp_pdf_url,
-      status: 'ready_for_signing'
-    })
-    .eq('id', agreement_id);
-
-  return res.status(200).json({
-    success: true,
-    pdf_url: urlData.publicUrl,
-    has_stamp: !!stamp_pdf_url,
-    message: 'PDF prepared for signing'
-  });
+  return res.status(200).json({ success: true, pdf_url: urlData.publicUrl, has_stamp: !!stamp_pdf_url });
 }
 
 // ─── STEP 2: INIT LANDLORD ESIGN ─────────────────────────
 async function initLandlordSign(req, res) {
-  const {
-    agreement_id,
-    pdf_url,
-    landlord_name,
-    landlord_phone,
-    landlord_email,
-    tenant_name,
-    tenant_email,
-    property_address
-  } = req.body;
-
-  if (!agreement_id || !pdf_url || !landlord_name) {
-    return res.status(400).json({ error: 'Missing required fields' });
-  }
+  const { agreement_id, pdf_url, landlord_name, landlord_phone, landlord_email, tenant_name, tenant_email, property_address } = req.body;
+  if (!agreement_id || !pdf_url || !landlord_name) return res.status(400).json({ error: 'Missing required fields' });
 
   // Upload PDF to Surepass
-  // Attach PDF to tenant session — try Supabase URL first, fall back to Surepass signed URL
-  // Upload PDF to Surepass
-  const uploadRes = await fetch(`${SUREPASS_BASE}/api/v1/esign/upload-pdf`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${SUREPASS_TOKEN}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ pdf_url, pdf_pre_uploaded: true })
-  });
-  const uploadData = await uploadRes.json();
-  console.log('Surepass PDF upload:', JSON.stringify(uploadData));
+  await axios.post(`${SUREPASS_BASE}/api/v1/esign/upload-pdf`, {
+    pdf_url, pdf_pre_uploaded: true
+  }, { headers: spHeaders, timeout: 30000 });
+  console.log('Landlord PDF uploaded to Surepass');
 
-  // Create eSign session for landlord
-  const signRes = await fetch(`${SUREPASS_BASE}/api/v1/esign/initialize`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${SUREPASS_TOKEN}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      pdf_pre_uploaded: true,
-      pdf_url,
-      sign_type: 'aadhaar',
-      auth_mode: 1,
-      expire_in_days: 7,
-      config: {
-        reason: 'Signing Leave & License Agreement as Licensor',
-        positions: {
-          1: [{ x: 50, y: 700 }]   // Signature position
-        }
-      },
-      prefill_options: {
-        full_name: landlord_name,
-        ...(landlord_phone && { mobile_number: landlord_phone }),
-        ...(landlord_email && { user_email: landlord_email })
-      }
-    })
-  });
+  // Initialize landlord session
+  const signRes = await axios.post(`${SUREPASS_BASE}/api/v1/esign/initialize`, {
+    pdf_pre_uploaded: true, pdf_url, sign_type: 'aadhaar', auth_mode: 1, expire_in_days: 7,
+    config: { reason: 'Signing Leave & License Agreement as Licensor', positions: { 1: [{ x: 50, y: 700 }] } },
+    prefill_options: {
+      full_name: landlord_name,
+      ...(landlord_phone && { mobile_number: landlord_phone }),
+      ...(landlord_email && { user_email: landlord_email })
+    }
+  }, { headers: spHeaders, timeout: 30000 });
 
-  const signData = await signRes.json();
+  const signData = signRes.data;
   console.log('Landlord eSign init:', JSON.stringify(signData));
-
-  if (!signRes.ok || !signData.data) {
-    return res.status(400).json({
-      error: 'Failed to create landlord eSign session',
-      details: signData.message || signData
-    });
-  }
+  if (!signData.data) return res.status(400).json({ error: 'Failed to create landlord eSign session', details: signData.message });
 
   const landlordToken = signData.data.client_id;
-  const landlordUrl = signData.data.url
-    ? `https://esign-client.surepass.app/?token=${signData.data.url}&window_name=PropLedger%20eSign`
-    : null;
+  const rawUrl = signData.data.url || '';
+  const landlordUrl = rawUrl.startsWith('http') ? rawUrl : `https://esign-client.surepass.app/?token=${rawUrl}&window_name=PropLedger%20eSign`;
 
-  // Save signing record to DB
-  const { data: signRecord, error: dbError } = await supabase
-    .from('esign_records')
-    .upsert({
-      agreement_id,
-      landlord_name,
-      landlord_email,
-      landlord_phone,
-      tenant_name,
-      tenant_email,
-      property_address,
-      landlord_client_id: landlordToken,
-      landlord_sign_url: landlordUrl,
-      status: 'landlord_pending',
-      pdf_url,
-      created_at: new Date().toISOString()
-    }, {
-      onConflict: 'agreement_id'
-    })
-    .select()
-    .maybeSingle();
+  await supabase.from('esign_records').upsert({
+    agreement_id, landlord_name, landlord_email, landlord_phone, tenant_name, tenant_email, property_address,
+    landlord_client_id: landlordToken, landlord_sign_url: landlordUrl, status: 'landlord_pending',
+    pdf_url, created_at: new Date().toISOString()
+  }, { onConflict: 'agreement_id' }).select().maybeSingle();
 
-  if (dbError) console.error('DB error:', dbError);
-
-  // Send email to landlord with signing link
   if (landlord_email && landlordUrl) {
-    await sendSigningEmail({
-      to: landlord_email,
-      name: landlord_name,
-      role: 'Licensor (Landlord)',
-      signingUrl: landlordUrl,
-      propertyAddress: property_address,
-      otherParty: tenant_name
-    });
+    await sendSigningEmail({ to: landlord_email, name: landlord_name, role: 'Licensor (Landlord)', signingUrl: landlordUrl, propertyAddress: property_address, otherParty: tenant_name });
   }
 
-  return res.status(200).json({
-    success: true,
-    landlord_token: landlordToken,
-    landlord_sign_url: landlordUrl,
-    status: 'landlord_pending',
-    message: 'Landlord eSign session created. Email sent.'
-  });
+  return res.status(200).json({ success: true, landlord_token: landlordToken, landlord_sign_url: landlordUrl, status: 'landlord_pending', message: 'Landlord eSign session created. Email sent.' });
 }
 
 // ─── STEP 3: LANDLORD SIGNED → CREATE TENANT SESSION ────
 async function handleLandlordSigned(req, res) {
   const { agreement_id, landlord_client_id } = req.body;
+  if (!agreement_id || !landlord_client_id) return res.status(400).json({ error: 'Missing agreement_id or landlord_client_id' });
 
-  if (!agreement_id || !landlord_client_id) {
-    return res.status(400).json({ error: 'Missing agreement_id or landlord_client_id' });
-  }
-
-// Get signed PDF link from Surepass
-  const docRes = await fetch(`${SUREPASS_BASE}/api/v1/esign/get-signed-document/${landlord_client_id}`, {
-    method: 'GET',
-    headers: { 'Authorization': `Bearer ${SUREPASS_TOKEN}` }
-  });
-  const docData = await docRes.json();
+  // Get signed PDF link from Surepass
+  const docRes = await axios.get(`${SUREPASS_BASE}/api/v1/esign/get-signed-document/${landlord_client_id}`, { headers: spHeaders, timeout: 30000 });
+  const docData = docRes.data;
   console.log('Get signed doc response:', JSON.stringify(docData));
 
   const signedPdfLink = docData.data?.url || docData.data?.link || docData.data?.pdf_url;
-  if (!signedPdfLink) {
-    return res.status(400).json({
-      error: 'Could not get landlord-signed PDF link',
-      details: docData.message || JSON.stringify(docData)
-    });
-  }
+  if (!signedPdfLink) return res.status(400).json({ error: 'Could not get landlord-signed PDF link', details: docData.message });
 
-  // Download the actual PDF
+  // Download the signed PDF
   const pdfRes = await fetch(signedPdfLink);
-  if (!pdfRes.ok) {
-    return res.status(400).json({ error: 'Could not download landlord-signed PDF from link', details: `Status: ${pdfRes.status}` });
-  }
+  if (!pdfRes.ok) return res.status(400).json({ error: 'Could not download landlord-signed PDF' });
   const signedPdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
   console.log(`Landlord-signed PDF downloaded: ${signedPdfBuffer.length} bytes`);
 
-  // Upload landlord-signed PDF to Supabase
+  // Upload to Supabase for our records
   const fileName = `signing/${agreement_id}_landlord_signed.pdf`;
-  const { error: uploadError } = await supabase.storage
-    .from('agreements')
-    .upload(fileName, signedPdfBuffer, {
-      contentType: 'application/pdf',
-      upsert: true
-    });
+  const { error: uploadError } = await supabase.storage.from('agreements')
+    .upload(fileName, signedPdfBuffer, { contentType: 'application/pdf', upsert: true });
+  if (uploadError) return res.status(500).json({ error: 'Failed to upload landlord-signed PDF' });
 
-  if (uploadError) {
-    return res.status(500).json({ error: 'Failed to upload landlord-signed PDF' });
-  }
-
-  const { data: urlData } = supabase.storage
-    .from('agreements')
-    .getPublicUrl(fileName);
-
+  const { data: urlData } = supabase.storage.from('agreements').getPublicUrl(fileName);
   const landlordSignedUrl = urlData.publicUrl;
 
-  // Get signing record for tenant details
-  const { data: signRecord } = await supabase
-    .from('esign_records')
-    .select('*')
-    .eq('agreement_id', agreement_id)
-    .maybeSingle();
+  // Get tenant details
+  const { data: signRecord } = await supabase.from('esign_records').select('*').eq('agreement_id', agreement_id).maybeSingle();
+  if (!signRecord) return res.status(404).json({ error: 'Signing record not found' });
 
-  if (!signRecord) {
-    return res.status(404).json({ error: 'Signing record not found' });
-  }
-
-  // Upload actual PDF bytes to Surepass via file upload
-  const FormData = require('form-data');
-  const form = new FormData();
-  form.append('file', signedPdfBuffer, { filename: 'agreement.pdf', contentType: 'application/pdf' });
-
-  const fileUploadRes = await fetch(`${SUREPASS_BASE}/api/v1/files/esign/upload`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${SUREPASS_TOKEN}`,
-      ...form.getHeaders()
+  // ── TENANT SESSION ──
+  // Step A: Initialize tenant session
+  const tenantInitRes = await axios.post(`${SUREPASS_BASE}/api/v1/esign/initialize`, {
+    pdf_pre_uploaded: true,
+    pdf_url: landlordSignedUrl,
+    sign_type: 'aadhaar',
+    auth_mode: 1,
+    expire_in_days: 7,
+    config: {
+      reason: 'Signing Leave & License Agreement as Licensee',
+      positions: { 1: [{ x: 350, y: 700 }] }
     },
-    body: form
-  });
-  const fileUploadData = await fileUploadRes.json();
-  console.log('File upload response:', JSON.stringify(fileUploadData));
+    prefill_options: {
+      full_name: signRecord.tenant_name || '',
+      ...(signRecord.tenant_email && { user_email: signRecord.tenant_email })
+    }
+  }, { headers: spHeaders, timeout: 30000 });
 
-  const uploadedPdfUrl = fileUploadData.data?.url || fileUploadData.data?.link || signedPdfLink;
-  console.log('Using PDF URL for tenant:', uploadedPdfUrl);
-
-  // Create tenant eSign session using the uploaded PDF
-  const tenantSignRes = await fetch(`${SUREPASS_BASE}/api/v1/esign/initialize`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${SUREPASS_TOKEN}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      pdf_pre_uploaded: true,
-      pdf_url: uploadedPdfUrl,
-      sign_type: 'aadhaar',
-      auth_mode: 1,
-      expire_in_days: 7,
-      config: {
-        reason: 'Signing Leave & License Agreement as Licensee',
-        positions: {
-          1: [{ x: 350, y: 700 }]   // Tenant signs on the right
-        }
-      },
-      prefill_options: {
-        full_name: signRecord.tenant_name || '',
-        ...(signRecord.tenant_email && { user_email: signRecord.tenant_email })
-      }
-    })
-  });
-
-  const tenantSignData = await tenantSignRes.json();
+  const tenantSignData = tenantInitRes.data;
   console.log('Tenant eSign init:', JSON.stringify(tenantSignData));
+  if (!tenantSignData.data) return res.status(400).json({ error: 'Failed to create tenant eSign session', details: tenantSignData.message });
 
-  if (!tenantSignRes.ok || !tenantSignData.data) {
-    return res.status(400).json({
-      error: 'Failed to create tenant eSign session',
-      details: tenantSignData.message || tenantSignData
-    });
-  }
-const tenantToken = tenantSignData.data.client_id;
+  const tenantToken = tenantSignData.data.client_id;
 
+  // Step B: Attach PDF to tenant session (same pattern as working esign.js)
+  const attachRes = await axios.post(`${SUREPASS_BASE}/api/v1/esign/upload-pdf`, {
+    client_id: tenantToken,
+    link: landlordSignedUrl
+  }, { headers: spHeaders, timeout: 30000 });
+  console.log('Tenant PDF attach response:', JSON.stringify(attachRes.data));
 
-const rawTenantUrl = tenantSignData.data.url || '';
+  const rawTenantUrl = tenantSignData.data.url || '';
   const tenantUrl = rawTenantUrl.startsWith('http')
     ? rawTenantUrl
     : `https://esign-client.surepass.app/?token=${rawTenantUrl}&window_name=PropLedger%20eSign`;
 
-  // Update DB record
-  await supabase
-    .from('esign_records')
-    .update({
-      landlord_signed_at: new Date().toISOString(),
-      landlord_signed_pdf_url: landlordSignedUrl,
-      tenant_client_id: tenantToken,
-      tenant_sign_url: tenantUrl,
-      status: 'tenant_pending'
-    })
-    .eq('agreement_id', agreement_id);
+  // Update DB
+  await supabase.from('esign_records').update({
+    landlord_signed_at: new Date().toISOString(),
+    landlord_signed_pdf_url: landlordSignedUrl,
+    tenant_client_id: tenantToken,
+    tenant_sign_url: tenantUrl,
+    status: 'tenant_pending'
+  }).eq('agreement_id', agreement_id);
 
-  // Send email to tenant with signing link
+  // Email tenant
   if (signRecord.tenant_email && tenantUrl) {
     await sendSigningEmail({
-      to: signRecord.tenant_email,
-      name: signRecord.tenant_name,
-      role: 'Licensee (Tenant)',
-      signingUrl: tenantUrl,
-      propertyAddress: signRecord.property_address,
+      to: signRecord.tenant_email, name: signRecord.tenant_name, role: 'Licensee (Tenant)',
+      signingUrl: tenantUrl, propertyAddress: signRecord.property_address,
       otherParty: signRecord.landlord_name,
       message: `${signRecord.landlord_name} has signed the agreement. It's now your turn to sign.`
     });
   }
 
   return res.status(200).json({
-    success: true,
-    tenant_token: tenantToken,
-    tenant_sign_url: tenantUrl,
-    landlord_signed_pdf_url: landlordSignedUrl,
-    status: 'tenant_pending',
+    success: true, tenant_token: tenantToken, tenant_sign_url: tenantUrl,
+    landlord_signed_pdf_url: landlordSignedUrl, status: 'tenant_pending',
     message: 'Landlord signature recorded. Tenant session created. Email sent.'
   });
 }
@@ -463,152 +256,60 @@ const rawTenantUrl = tenantSignData.data.url || '';
 // ─── STEP 4: TENANT SIGNED → FINAL PDF → EMAIL BOTH ─────
 async function handleTenantSigned(req, res) {
   const { agreement_id, tenant_client_id } = req.body;
+  if (!agreement_id || !tenant_client_id) return res.status(400).json({ error: 'Missing agreement_id or tenant_client_id' });
 
-  if (!agreement_id || !tenant_client_id) {
-    return res.status(400).json({ error: 'Missing agreement_id or tenant_client_id' });
-  }
-
- // Get final signed PDF link from Surepass
-  const docRes = await fetch(`${SUREPASS_BASE}/api/v1/esign/get-signed-document/${tenant_client_id}`, {
-    method: 'GET',
-    headers: { 'Authorization': `Bearer ${SUREPASS_TOKEN}` }
-  });
-  const docData = await docRes.json();
-  console.log('Get final signed doc response:', JSON.stringify(docData));
-
+  const docRes = await axios.get(`${SUREPASS_BASE}/api/v1/esign/get-signed-document/${tenant_client_id}`, { headers: spHeaders, timeout: 30000 });
+  const docData = docRes.data;
   const finalPdfLink = docData.data?.url || docData.data?.link || docData.data?.pdf_url;
-  if (!finalPdfLink) {
-    return res.status(400).json({
-      error: 'Could not get final signed PDF link',
-      details: docData.message || JSON.stringify(docData)
-    });
-  }
+  if (!finalPdfLink) return res.status(400).json({ error: 'Could not get final signed PDF link', details: docData.message });
 
   const pdfRes = await fetch(finalPdfLink);
-  if (!pdfRes.ok) {
-    return res.status(400).json({ error: 'Could not download final signed PDF from link', details: `Status: ${pdfRes.status}` });
-  }
+  if (!pdfRes.ok) return res.status(400).json({ error: 'Could not download final signed PDF' });
   const finalPdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
-  console.log(`Final signed PDF: ${finalPdfBuffer.length} bytes`);
 
-  // Upload final signed PDF to Supabase
   const fileName = `signing/${agreement_id}_final_signed.pdf`;
-  const { error: uploadError } = await supabase.storage
-    .from('agreements')
-    .upload(fileName, finalPdfBuffer, {
-      contentType: 'application/pdf',
-      upsert: true
-    });
+  const { error: uploadError } = await supabase.storage.from('agreements')
+    .upload(fileName, finalPdfBuffer, { contentType: 'application/pdf', upsert: true });
+  if (uploadError) return res.status(500).json({ error: 'Failed to upload final PDF' });
 
-  if (uploadError) {
-    return res.status(500).json({ error: 'Failed to upload final PDF' });
-  }
-
-  const { data: urlData } = supabase.storage
-    .from('agreements')
-    .getPublicUrl(fileName);
-
+  const { data: urlData } = supabase.storage.from('agreements').getPublicUrl(fileName);
   const finalPdfUrl = urlData.publicUrl;
 
-  // Get signing record
-  const { data: signRecord } = await supabase
-    .from('esign_records')
-    .select('*')
-    .eq('agreement_id', agreement_id)
-    .maybeSingle();
+  const { data: signRecord } = await supabase.from('esign_records').select('*').eq('agreement_id', agreement_id).maybeSingle();
 
-  // Update DB
-  await supabase
-    .from('esign_records')
-    .update({
-      tenant_signed_at: new Date().toISOString(),
-      final_pdf_url: finalPdfUrl,
-      status: 'completed'
-    })
-    .eq('agreement_id', agreement_id);
+  await supabase.from('esign_records').update({ tenant_signed_at: new Date().toISOString(), final_pdf_url: finalPdfUrl, status: 'completed' }).eq('agreement_id', agreement_id);
+  await supabase.from('agreements').update({ status: 'signed', signed_pdf_url: finalPdfUrl }).eq('id', agreement_id);
 
-  // Update agreement status
-  await supabase
-    .from('agreements')
-    .update({ status: 'signed', signed_pdf_url: finalPdfUrl })
-    .eq('id', agreement_id);
-
-  // Send final PDF to BOTH parties
   if (signRecord) {
-    const emailPromises = [];
-
-    if (signRecord.landlord_email) {
-      emailPromises.push(sendFinalEmail({
-        to: signRecord.landlord_email,
-        name: signRecord.landlord_name,
-        role: 'Licensor',
-        otherParty: signRecord.tenant_name,
-        propertyAddress: signRecord.property_address,
-        pdfUrl: finalPdfUrl
-      }));
-    }
-
-    if (signRecord.tenant_email) {
-      emailPromises.push(sendFinalEmail({
-        to: signRecord.tenant_email,
-        name: signRecord.tenant_name,
-        role: 'Licensee',
-        otherParty: signRecord.landlord_name,
-        propertyAddress: signRecord.property_address,
-        pdfUrl: finalPdfUrl
-      }));
-    }
-
-    await Promise.allSettled(emailPromises);
+    const promises = [];
+    if (signRecord.landlord_email) promises.push(sendFinalEmail({ to: signRecord.landlord_email, name: signRecord.landlord_name, role: 'Licensor', otherParty: signRecord.tenant_name, propertyAddress: signRecord.property_address, pdfUrl: finalPdfUrl }));
+    if (signRecord.tenant_email) promises.push(sendFinalEmail({ to: signRecord.tenant_email, name: signRecord.tenant_name, role: 'Licensee', otherParty: signRecord.landlord_name, propertyAddress: signRecord.property_address, pdfUrl: finalPdfUrl }));
+    await Promise.allSettled(promises);
   }
 
-  return res.status(200).json({
-    success: true,
-    final_pdf_url: finalPdfUrl,
-    status: 'completed',
-    message: 'Both parties have signed. Final PDF sent to landlord and tenant.'
-  });
+  return res.status(200).json({ success: true, final_pdf_url: finalPdfUrl, status: 'completed', message: 'Both parties have signed. Final PDF sent.' });
 }
 
 // ─── CHECK STATUS ────────────────────────────────────────
 async function checkSignStatus(req, res) {
   const { agreement_id } = req.body;
+  if (!agreement_id) return res.status(400).json({ error: 'Missing agreement_id' });
 
-  if (!agreement_id) {
-    return res.status(400).json({ error: 'Missing agreement_id' });
-  }
-
-  const { data: signRecord } = await supabase
-    .from('esign_records')
-    .select('*')
-    .eq('agreement_id', agreement_id)
-    .maybeSingle();
-
-  if (!signRecord) {
-    return res.status(404).json({ error: 'No signing record found' });
-  }
+  const { data: signRecord } = await supabase.from('esign_records').select('*').eq('agreement_id', agreement_id).maybeSingle();
+  if (!signRecord) return res.status(404).json({ error: 'No signing record found' });
 
   return res.status(200).json({
-    success: true,
-    status: signRecord.status,
-    landlord_signed: !!signRecord.landlord_signed_at,
-    landlord_signed_at: signRecord.landlord_signed_at,
-    tenant_signed: !!signRecord.tenant_signed_at,
-    tenant_signed_at: signRecord.tenant_signed_at,
-    landlord_sign_url: signRecord.landlord_sign_url,
-    tenant_sign_url: signRecord.tenant_sign_url,
+    success: true, status: signRecord.status,
+    landlord_signed: !!signRecord.landlord_signed_at, landlord_signed_at: signRecord.landlord_signed_at,
+    tenant_signed: !!signRecord.tenant_signed_at, tenant_signed_at: signRecord.tenant_signed_at,
+    landlord_sign_url: signRecord.landlord_sign_url, tenant_sign_url: signRecord.tenant_sign_url,
     final_pdf_url: signRecord.final_pdf_url
   });
 }
 
 // ─── EMAIL HELPERS ───────────────────────────────────────
-
 async function sendSigningEmail({ to, name, role, signingUrl, propertyAddress, otherParty, message }) {
-  if (!RESEND_API_KEY) {
-    console.log('RESEND_API_KEY not set, skipping email');
-    return;
-  }
-
+  if (!RESEND_API_KEY) return;
   const html = `
     <div style="font-family:'Outfit',system-ui,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;">
       <div style="background:#0a0f1e;padding:28px 32px;">
@@ -635,35 +336,19 @@ async function sendSigningEmail({ to, name, role, signingUrl, propertyAddress, o
       <div style="background:#f8f6f0;padding:16px 32px;text-align:center;">
         <p style="color:#8892a4;font-size:11px;margin:0;">PropLedger · Smart property management for Indian landlords</p>
       </div>
-    </div>
-  `;
-
+    </div>`;
   try {
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        from: 'PropLedger <noreply@propledger.in>',
-        to,
-        subject: `Sign your Leave & License agreement — PropLedger`,
-        html
-      })
+      headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: 'PropLedger <noreply@propledger.in>', to, subject: 'Sign your Leave & License agreement — PropLedger', html })
     });
     console.log(`Signing invite sent to ${to}`);
-  } catch (err) {
-    console.error('Email send error:', err.message);
-  }
+  } catch (err) { console.error('Email error:', err.message); }
 }
 
 async function sendFinalEmail({ to, name, role, otherParty, propertyAddress, pdfUrl }) {
-  if (!RESEND_API_KEY) {
-    console.log('RESEND_API_KEY not set, skipping email');
-    return;
-  }
-
+  if (!RESEND_API_KEY) return;
   const html = `
     <div style="font-family:'Outfit',system-ui,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;">
       <div style="background:#0a0f1e;padding:28px 32px;">
@@ -676,7 +361,7 @@ async function sendFinalEmail({ to, name, role, otherParty, propertyAddress, pdf
         </div>
         <p style="color:#6B6B63;font-size:14px;line-height:1.6;margin:0 0 20px;">
           Hi ${name},<br><br>
-          Your Leave & License agreement has been signed by both the Licensor and Licensee via Aadhaar eSign. 
+          Your Leave & License agreement has been signed by both the Licensor and Licensee via Aadhaar eSign.
           The signed agreement is legally valid and enforceable.
         </p>
         ${propertyAddress ? `<div style="background:#f8f6f0;border-left:3px solid #2dd4a0;padding:12px 16px;margin:0 0 20px;border-radius:0 8px 8px 0;">
@@ -694,25 +379,13 @@ async function sendFinalEmail({ to, name, role, otherParty, propertyAddress, pdf
       <div style="background:#f8f6f0;padding:16px 32px;text-align:center;">
         <p style="color:#8892a4;font-size:11px;margin:0;">PropLedger · Smart property management for Indian landlords</p>
       </div>
-    </div>
-  `;
-
+    </div>`;
   try {
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        from: 'PropLedger <noreply@propledger.in>',
-        to,
-        subject: `✅ Agreement signed — Download your copy · PropLedger`,
-        html
-      })
+      headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: 'PropLedger <noreply@propledger.in>', to, subject: '✅ Agreement signed — Download your copy · PropLedger', html })
     });
     console.log(`Final agreement sent to ${to}`);
-  } catch (err) {
-    console.error('Final email send error:', err.message);
-  }
+  } catch (err) { console.error('Final email error:', err.message); }
 }
