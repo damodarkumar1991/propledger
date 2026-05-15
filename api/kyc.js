@@ -103,7 +103,7 @@ async function panVerify(req, res) {
   let surepassData;
   try {
     const { data } = await axios.post(
-      'https://kyc-api.surepass.app/api/v1/identity/pan-comprehensive',
+      'https://kyc-api.surepass.app/api/v1/pan/pan-comprehensive',
       { id_number: pan_number.toUpperCase() },
       { headers: { 'Authorization': `Bearer ${process.env.SUREPASS_TOKEN}` } }
     );
