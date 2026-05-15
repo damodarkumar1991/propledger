@@ -177,7 +177,7 @@ async function digilockerInit(req, res) {
   try {
     const { data } = await axios.post(
       'https://kyc-api.surepass.app/api/v1/identity/digilocker',
-      {},
+      { redirect_url: 'https://www.propledger.in/tenant-verification.html' },
       { headers: { 'Authorization': `Bearer ${process.env.SUREPASS_TOKEN}` } }
     );
     surepassData = data;
