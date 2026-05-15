@@ -103,7 +103,7 @@ async function panVerify(req, res) {
   let surepassData;
   try {
     const { data } = await axios.post(
-      'https://kyc-api.surepass.app/api/v1/pan/pan-comprehensive',
+      'https://kyc-api.surepass.app/api/v1/identity/pan-comprehensive',
       { id_number: pan_number.toUpperCase() },
       { headers: { 'Authorization': `Bearer ${process.env.SUREPASS_TOKEN}` } }
     );
@@ -176,8 +176,8 @@ async function digilockerInit(req, res) {
   let surepassData;
   try {
     const { data } = await axios.post(
-      'https://kyc-api.surepass.app/api/v1/digilocker/generate-url',
-      { client_id: verification_id },
+      'https://kyc-api.surepass.app/api/v1/identity/digilocker',
+      {},
       { headers: { 'Authorization': `Bearer ${process.env.SUREPASS_TOKEN}` } }
     );
     surepassData = data;
@@ -251,12 +251,17 @@ async function digilockerStatus(req, res) {
   let surepassData;
   try {
     const { data } = await axios.get(
-      `https://kyc-api.surepass.app/api/v1/identity/digilocker/status/${record.digilocker_client_id}`,
+      `https://kyc-api.surepass.app/api/v1/digilocker/download-aadhaar/${record.digilocker_client_id}`,
       { headers: { 'Authorization': `Bearer ${process.env.SUREPASS_TOKEN}` } }
     );
     surepassData = data;
   } catch (err) {
-    console.error('Surepass DigiLocker status error:', err.response?.data);
+    const errData = err.response?.data;
+    // 404 means tenant hasn't completed consent yet
+    if (err.response?.status === 404) {
+      return res.status(200).json({ success: true, status: 'pending', message: 'Tenant has not completed consent yet.' });
+    }
+    console.error('Surepass DigiLocker status error:', errData);
     return res.status(422).json({ error: 'Failed to check DigiLocker status' });
   }
 
@@ -266,12 +271,15 @@ async function digilockerStatus(req, res) {
   }
 
   const digiData = surepassData.data;
+  // Aadhaar data lives in aadhaar_xml_data, metadata in digilocker_metadata
+  const xmlData  = digiData.aadhaar_xml_data || {};
+  const metaData = digiData.digilocker_metadata || {};
 
   const aadhaarInfo = {
-    full_name:     digiData.name     || digiData.full_name || '',
-    date_of_birth: digiData.dob      || digiData.date_of_birth || '',
-    gender:        digiData.gender   || '',
-    address:       digiData.address  || digiData.current_address || '',
+    full_name:     xmlData.full_name  || metaData.name  || '',
+    date_of_birth: xmlData.dob        || metaData.dob   || '',
+    gender:        xmlData.gender     || metaData.gender || '',
+    address:       xmlData.full_address || xmlData.address || '',
     verified_at:   new Date().toISOString(),
   };
 
