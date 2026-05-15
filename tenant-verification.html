@@ -3,398 +3,765 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PropLedger — Tenant Verification</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!--<script src="https://checkout.razorpay.com/v1/checkout.js"></script>-->
-<!--<script src="/payment.js"></script>-->
+<title>Tenant Verification — PropLedger</title>
 <style>
-  :root{
-    --navy:#0a0f1e;--navy-2:#0f1628;--navy-3:#141d35;--navy-4:#1a2444;
-    --gold:#c9a84c;--gold-light:#e8c97a;--gold-dim:rgba(201,168,76,0.1);--gold-border:rgba(201,168,76,0.25);
-    --white:#f8f6f0;--white-2:#e8e4d9;--muted:#8892a4;--muted-2:#5a6478;
-    --green:#2dd4a0;--green-dim:rgba(45,212,160,0.1);--green-border:rgba(45,212,160,0.2);
-    --red:#f87171;--red-dim:rgba(248,113,113,0.08);--red-border:rgba(248,113,113,0.2);
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3347;
+    --accent: #4f8ef7;
+    --accent2: #7c5cfc;
+    --success: #22c55e;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --text: #e8eaf0;
+    --muted: #7b82a0;
+    --radius: 12px;
   }
-  *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'Outfit',sans-serif;background:var(--navy);color:var(--white);min-height:100vh;}
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 16px;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
 
-  .topbar{background:var(--navy-2);border-bottom:1px solid rgba(255,255,255,0.06);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;}
-  .logo{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:var(--white);text-decoration:none;}
-  .logo span{color:var(--gold);}
-  .back-btn{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;transition:color 0.2s;}
-  .back-btn:hover{color:var(--white-2);}
+  .page-header {
+    max-width: 680px;
+    margin: 0 auto 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .logo-badge {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .page-title { font-size: 18px; font-weight: 700; }
+  .page-sub { font-size: 13px; color: var(--muted); margin-top: 1px; }
 
-  .page{max-width:560px;margin:0 auto;padding:40px 24px;}
+  .container { max-width: 680px; margin: 0 auto; }
 
-  /* PROGRESS */
-  .progress-wrap{margin-bottom:32px;}
-  .progress-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;font-weight:600;}
-  .steps{display:flex;align-items:center;}
-  .step{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;}
-  .step-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;transition:all 0.3s;}
-  .step.pending .step-num{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--muted-2);}
-  .step.active  .step-num{background:var(--gold);color:var(--navy);}
-  .step.done    .step-num{background:var(--green-dim);border:1px solid var(--green-border);color:var(--green);}
-  .step.pending .step-label{color:var(--muted-2);}
-  .step.active  .step-label{color:var(--white);}
-  .step.done    .step-label{color:var(--green);}
-  .step-line{flex:1;height:1px;background:rgba(255,255,255,0.08);margin:0 10px;transition:background 0.3s;}
-  .step-line.done{background:var(--green);}
+  /* ── STEP TRACKER ── */
+  .steps {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+  }
+  .step-item {
+    display: flex; align-items: center; gap: 8px; flex: 1;
+  }
+  .step-dot {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+    background: var(--surface2); color: var(--muted);
+    border: 2px solid var(--border);
+    flex-shrink: 0; transition: all 0.3s;
+  }
+  .step-dot.active {
+    background: var(--accent); color: #fff;
+    border-color: var(--accent); box-shadow: 0 0 12px rgba(79,142,247,0.35);
+  }
+  .step-dot.done {
+    background: var(--success); color: #fff;
+    border-color: var(--success);
+  }
+  .step-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .step-label.active { color: var(--text); }
+  .step-label.done { color: var(--success); }
+  .step-connector {
+    flex: 1; height: 2px;
+    background: var(--border);
+    margin: 0 8px;
+    border-radius: 2px;
+  }
+  .step-connector.done { background: var(--success); }
 
-  /* PANELS */
-  .panel{background:var(--navy-2);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:28px;margin-bottom:20px;display:none;}
-  .panel.active{display:block;}
-  .panel-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:var(--white);margin-bottom:6px;}
-  .panel-sub{font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:22px;}
+  /* ── CARDS ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .card-header {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 20px;
+  }
+  .card-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    background: var(--surface2);
+  }
+  .card-title { font-size: 15px; font-weight: 700; }
+  .card-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
-  /* WHAT YOU GET */
-  .feature-list{background:var(--navy-3);border-radius:10px;padding:16px 18px;margin-bottom:22px;}
-  .feature-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted-2);margin-bottom:12px;}
-  .feature-item{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);padding:4px 0;}
-  .feature-item span.icon{color:var(--green);font-size:14px;}
+  /* ── STATUS BADGE on card header ── */
+  .status-pill {
+    margin-left: auto;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .pill-pending  { background: rgba(123,130,160,0.15); color: var(--muted); }
+  .pill-running  { background: rgba(79,142,247,0.15);  color: var(--accent); }
+  .pill-done     { background: rgba(34,197,94,0.15);   color: var(--success); }
+  .pill-error    { background: rgba(239,68,68,0.15);   color: var(--danger); }
+  .pill-warn     { background: rgba(245,158,11,0.15);  color: var(--warn); }
 
-  /* PAYMENT ROW */
-  .pay-row{border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:16px 18px;margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;}
-  .pay-label{font-size:14px;color:var(--white-2);}
-  .pay-amount{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:700;color:var(--gold);}
+  /* ── INPUTS ── */
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .field input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
+  }
+  .field input:focus { border-color: var(--accent); }
+  .field input::placeholder { color: var(--muted); opacity: 0.6; }
+  .field input:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  /* INPUT */
-  .fg{margin-bottom:18px;}
-  .fg label{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:7px;}
-  .fg input{width:100%;background:var(--navy-3);border:1px solid rgba(255,255,255,0.08);border-radius:9px;padding:13px 16px;font-size:15px;font-family:'Outfit',sans-serif;color:var(--white);outline:none;transition:all 0.2s;letter-spacing:1px;}
-  .fg input:focus{border-color:var(--gold-border);background:var(--navy-4);}
-  .fg input::placeholder{color:var(--muted-2);letter-spacing:0;}
-  .fg .hint{font-size:12px;color:var(--muted-2);margin-top:6px;}
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 8px; padding: 10px 20px;
+    border-radius: 8px; border: none;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+    font-family: inherit;
+  }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(79,142,247,0.25);
+  }
+  .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(79,142,247,0.35); }
+  .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-outline:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .btn-success {
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+    color: #fff;
+  }
+  .btn-full { width: 100%; }
 
-  /* BUTTONS */
-  .btn-primary{width:100%;background:var(--gold);color:var(--navy);border:none;border-radius:9px;padding:14px;font-size:15px;font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:8px;}
-  .btn-primary:hover:not(:disabled){background:var(--gold-light);}
-  .btn-primary:disabled{opacity:0.5;cursor:not-allowed;}
-  .btn-outline{width:100%;background:transparent;border:1px solid rgba(255,255,255,0.1);border-radius:9px;padding:12px;font-size:14px;font-weight:500;color:var(--muted);font-family:'Outfit',sans-serif;cursor:pointer;transition:all 0.2s;margin-top:10px;}
-  .btn-outline:hover{border-color:rgba(255,255,255,0.2);color:var(--white-2);}
+  /* ── SPINNER ── */
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* RESULT ROWS */
-  .result-card{background:var(--navy-3);border-radius:12px;padding:18px;margin-bottom:18px;}
-  .result-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:13px;}
-  .result-row:last-child{border-bottom:none;}
-  .result-label{color:var(--muted);}
-  .result-value{font-weight:500;color:var(--white-2);text-align:right;}
-  .result-value.green{color:var(--green);}
-  .result-value.gold{color:var(--gold);}
+  /* ── RESULT BOX ── */
+  .result-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .result-item {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .result-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .result-value { font-size: 14px; font-weight: 600; color: var(--text); margin-top: 3px; }
 
-  /* SUCCESS */
-  .success-icon{font-size:56px;text-align:center;margin-bottom:16px;animation:pop 0.5s ease;}
-  @keyframes pop{0%{transform:scale(0.5);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
-  .success-title{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:700;color:var(--white);text-align:center;margin-bottom:6px;}
-  .success-sub{font-size:14px;color:var(--muted);text-align:center;margin-bottom:24px;}
+  /* ── MATCH INDICATOR ── */
+  .match-bar {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-top: 16px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .match-icon { font-size: 22px; flex-shrink: 0; }
+  .match-label { font-size: 13px; font-weight: 600; }
+  .match-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .match-score {
+    margin-left: auto;
+    font-size: 20px; font-weight: 800;
+  }
+  .score-high { color: var(--success); }
+  .score-mid  { color: var(--warn); }
+  .score-low  { color: var(--danger); }
 
-  /* ALERT */
-  .alert{padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;display:none;align-items:flex-start;gap:10px;line-height:1.5;}
-  .alert.show{display:flex;}
-  .alert-error{background:var(--red-dim);border:1px solid var(--red-border);color:var(--red);}
+  /* ── KYC COMPLETE BANNER ── */
+  .kyc-banner {
+    background: linear-gradient(135deg, rgba(34,197,94,0.12), rgba(22,163,74,0.06));
+    border: 1px solid rgba(34,197,94,0.3);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    display: flex; align-items: center; gap: 16px;
+    margin-top: 20px;
+  }
+  .kyc-banner-icon { font-size: 36px; }
+  .kyc-banner-title { font-size: 16px; font-weight: 700; color: var(--success); }
+  .kyc-banner-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
-  /* SPINNER */
-  .spinner{width:16px;height:16px;border:2px solid rgba(10,15,30,0.3);border-top-color:var(--navy);border-radius:50%;animation:spin 0.7s linear infinite;display:none;}
-  @keyframes spin{to{transform:rotate(360deg)}}
+  /* ── DIGILOCKER LINK BOX ── */
+  .link-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-top: 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .link-text {
+    font-size: 12px; color: var(--accent);
+    word-break: break-all; flex: 1;
+    font-family: monospace;
+  }
+  .copy-btn {
+    background: rgba(79,142,247,0.15);
+    border: none; border-radius: 6px;
+    color: var(--accent); font-size: 12px; font-weight: 600;
+    padding: 6px 10px; cursor: pointer;
+    white-space: nowrap; transition: background 0.2s;
+    font-family: inherit;
+  }
+  .copy-btn:hover { background: rgba(79,142,247,0.25); }
 
-  /* LOADING */
-  .page-loading{display:flex;align-items:center;justify-content:center;min-height:60vh;flex-direction:column;gap:16px;}
-  .page-spinner{width:24px;height:24px;border:2px solid rgba(201,168,76,0.2);border-top-color:var(--gold);border-radius:50%;animation:spin 0.7s linear infinite;}
+  /* ── ALERT ── */
+  .alert {
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-top: 12px;
+    display: none;
+  }
+  .alert.show { display: block; }
+  .alert-error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #fca5a5; }
+  .alert-info  { background: rgba(79,142,247,0.1); border: 1px solid rgba(79,142,247,0.25); color: #93c5fd; }
 
-  /* BADGE */
-  .verified-badge{display:inline-flex;align-items:center;gap:6px;background:var(--green-dim);border:1px solid var(--green-border);color:var(--green);padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;margin-bottom:16px;}
+  /* ── POLLING STATUS ── */
+  .polling-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px;
+    background: var(--surface2);
+    border-radius: 8px;
+    margin-top: 14px;
+  }
+  .polling-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 1.5s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .polling-text { font-size: 13px; color: var(--muted); }
+
+  /* ── SECTION DIVIDER ── */
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
 </style>
 </head>
 <body>
 
-<div class="topbar">
-  <a href="index.html" class="logo">Prop<span>Ledger</span></a>
-  <a href="dashboard.html" class="back-btn">
-    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-    Back to Dashboard
-  </a>
+<div class="page-header">
+  <div class="logo-badge">🏠</div>
+  <div>
+    <div class="page-title">Tenant Verification</div>
+    <div class="page-sub">PropLedger — KYC powered by Surepass</div>
+  </div>
 </div>
 
-<div class="page">
+<div class="container">
 
-  <!-- LOADING -->
-  <div id="page-loading" class="page-loading">
-    <div class="page-spinner"></div>
-    <div style="font-size:13px;color:var(--muted)">Loading...</div>
+  <!-- Step Tracker -->
+  <div class="steps">
+    <div class="step-item">
+      <div class="step-dot active" id="dot-1">1</div>
+      <span class="step-label active" id="lbl-1">PAN Verify</span>
+    </div>
+    <div class="step-connector" id="conn-1"></div>
+    <div class="step-item">
+      <div class="step-dot" id="dot-2">2</div>
+      <span class="step-label" id="lbl-2">DigiLocker</span>
+    </div>
+    <div class="step-connector" id="conn-2"></div>
+    <div class="step-item">
+      <div class="step-dot" id="dot-3">3</div>
+      <span class="step-label" id="lbl-3">KYC Complete</span>
+    </div>
   </div>
 
-  <div id="page-content" style="display:none">
-
-    <!-- PROGRESS -->
-    <div class="progress-wrap">
-      <div class="progress-label">Tenant Verification</div>
-      <div class="steps">
-        <div class="step active" id="ps1"><div class="step-num" id="ps1-num">1</div><div class="step-label">Pay</div></div>
-        <div class="step-line" id="pl1"></div>
-        <div class="step pending" id="ps2"><div class="step-num" id="ps2-num">2</div><div class="step-label">PAN</div></div>
-        <div class="step-line" id="pl2"></div>
-        <div class="step pending" id="ps3"><div class="step-num" id="ps3-num">3</div><div class="step-label">Done</div></div>
+  <!-- ── STEP 1: PAN VERIFICATION ── -->
+  <div class="card" id="pan-card">
+    <div class="card-header">
+      <div class="card-icon">🗂️</div>
+      <div>
+        <div class="card-title">PAN Verification</div>
+        <div class="card-sub">Verify tenant identity via Income Tax Dept</div>
       </div>
+      <span class="status-pill pill-pending" id="pan-pill">Pending</span>
     </div>
 
-    <!-- ALERT -->
-    <div class="alert alert-error" id="main-alert">
-      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      <span id="alert-text"></span>
+    <div class="field">
+      <label>Tenant Full Name</label>
+      <input type="text" id="tenant-name" placeholder="As on PAN card (e.g. Rahul Sharma)" />
+    </div>
+    <div class="field">
+      <label>PAN Number</label>
+      <input type="text" id="pan-number" placeholder="e.g. ABCDE1234F" maxlength="10"
+        style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" />
     </div>
 
-    <!-- PANEL 1: Intro + Pay -->
-    <div class="panel active" id="panel-intro">
-      <div class="panel-title">Verify Your Tenant</div>
-      <div class="panel-sub">Instantly verify your tenant's identity against the government PAN database. Report saved permanently to your PropLedger account.</div>
+    <div class="alert alert-error" id="pan-error"></div>
 
-      <div class="feature-list">
-        <div class="feature-title">What you get</div>
-        <div class="feature-item"><span class="icon">✓</span> PAN verified against Income Tax database</div>
-        <div class="feature-item"><span class="icon">✓</span> Tenant name and date of birth confirmed</div>
-        <div class="feature-item"><span class="icon">✓</span> PAN active status checked</div>
-        <div class="feature-item"><span class="icon">✓</span> Report saved to your account permanently</div>
-      </div>
+    <button class="btn btn-primary btn-full" id="pan-btn" onclick="verifyPAN()">
+      <span id="pan-btn-text">Verify PAN</span>
+      <div class="spinner" id="pan-spinner" style="display:none"></div>
+    </button>
 
-      <div class="pay-row">
-        <div class="pay-label">Tenant PAN Verification</div>
-        <div class="pay-amount">₹199</div>
-      </div>
-
-      <button class="btn-primary" id="pay-btn" onclick="createVerificationSession('test_bypass')">
-        <span id="pay-btn-text">Continue to Verify →</span>
-        <div class="spinner" id="pay-spinner"></div>
-      </button>
-      <div style="margin-top:12px;font-size:12px;color:var(--muted-2);text-align:center;">
-        Secure payment via Razorpay · UPI, Cards, Net Banking accepted
+    <!-- PAN Result (hidden until done) -->
+    <div id="pan-result" style="display:none">
+      <div class="divider"></div>
+      <div class="result-grid">
+        <div class="result-item">
+          <div class="result-label">Full Name</div>
+          <div class="result-value" id="res-pan-name">—</div>
+        </div>
+        <div class="result-item">
+          <div class="result-label">Date of Birth</div>
+          <div class="result-value" id="res-pan-dob">—</div>
+        </div>
+        <div class="result-item">
+          <div class="result-label">PAN Status</div>
+          <div class="result-value" id="res-pan-status">—</div>
+        </div>
+        <div class="result-item">
+          <div class="result-label">PAN Type</div>
+          <div class="result-value" id="res-pan-type">—</div>
+        </div>
       </div>
     </div>
-
-    <!-- PANEL 2: PAN Entry -->
-    <div class="panel" id="panel-pan">
-      <div class="panel-title">Enter Tenant PAN</div>
-      <div class="panel-sub">Enter the tenant's PAN card number exactly as printed on their card.</div>
-
-      <div class="fg">
-        <label>PAN Number</label>
-        <input
-          type="text"
-          id="pan-input"
-          placeholder="e.g. ABCDE1234F"
-          maxlength="10"
-          oninput="this.value = this.value.toUpperCase(); hideError();"
-        />
-        <div class="hint">Format: 5 letters · 4 numbers · 1 letter</div>
-      </div>
-
-      <button class="btn-primary" id="verify-btn" onclick="handleVerifyPAN()">
-        <span id="verify-btn-text">Verify PAN</span>
-        <div class="spinner" id="verify-spinner" style="border-top-color:var(--navy)"></div>
-      </button>
-    </div>
-
-    <!-- PANEL 3: Result -->
-    <div class="panel" id="panel-result">
-      <div class="success-icon">✅</div>
-      <div class="success-title">PAN Verified</div>
-      <div class="success-sub">Tenant identity confirmed against government database.</div>
-
-      <div class="verified-badge">
-        ✓ Verified · Saved to your account
-      </div>
-
-      <div class="result-card">
-        <div class="result-row"><span class="result-label">Full Name</span><span class="result-value" id="r-name">—</span></div>
-        <div class="result-row"><span class="result-label">PAN Number</span><span class="result-value gold" id="r-pan">—</span></div>
-        <div class="result-row"><span class="result-label">Date of Birth</span><span class="result-value" id="r-dob">—</span></div>
-        <div class="result-row"><span class="result-label">PAN Type</span><span class="result-value" id="r-type">—</span></div>
-        <div class="result-row"><span class="result-label">Status</span><span class="result-value green" id="r-status">—</span></div>
-      </div>
-
-      <button class="btn-primary" onclick="window.location.href='dashboard.html'">
-        Back to Dashboard
-      </button>
-      <button class="btn-outline" onclick="resetFlow()">
-        Verify Another Tenant
-      </button>
-    </div>
-
   </div>
+
+  <!-- ── STEP 2: DIGILOCKER ── -->
+  <div class="card" id="digilocker-card" style="opacity:0.5; pointer-events:none;">
+    <div class="card-header">
+      <div class="card-icon">🔐</div>
+      <div>
+        <div class="card-title">DigiLocker Verification</div>
+        <div class="card-sub">Aadhaar-verified name, address & DOB via Govt DigiLocker</div>
+      </div>
+      <span class="status-pill pill-pending" id="digi-pill">Pending</span>
+    </div>
+
+    <p style="font-size:13px; color:var(--muted); line-height:1.6; margin-bottom:16px;">
+      A secure consent link will be generated. Share it with the tenant — they log in with their
+      DigiLocker account and approve sharing. No Aadhaar OTP needed.
+    </p>
+
+    <div class="alert alert-error" id="digi-error"></div>
+
+    <button class="btn btn-primary btn-full" id="digi-btn" onclick="initDigiLocker()">
+      <span id="digi-btn-text">Generate DigiLocker Link</span>
+      <div class="spinner" id="digi-spinner" style="display:none"></div>
+    </button>
+
+    <!-- Link display -->
+    <div id="digi-link-box" style="display:none">
+      <div class="link-box">
+        <span class="link-text" id="digi-link-text">—</span>
+        <button class="copy-btn" onclick="copyLink()">Copy</button>
+      </div>
+      <p style="font-size:12px; color:var(--muted); margin-top:8px;">
+        📱 Send this link to the tenant via WhatsApp, SMS, or email. The link expires in 30 minutes.
+      </p>
+
+      <!-- Polling -->
+      <div class="polling-row" id="polling-row" style="display:none">
+        <div class="polling-dot"></div>
+        <span class="polling-text" id="polling-text">Waiting for tenant to complete DigiLocker consent...</span>
+      </div>
+
+      <div style="display:flex; gap:10px; margin-top:12px;">
+        <button class="btn btn-outline" style="flex:1" id="poll-btn" onclick="pollDigiLocker()">
+          Check Status
+        </button>
+        <button class="btn btn-outline" style="flex:1" onclick="autoPolling()">
+          Auto-check (30s)
+        </button>
+      </div>
+    </div>
+
+    <!-- DigiLocker Result (hidden until done) -->
+    <div id="digi-result" style="display:none">
+      <div class="divider"></div>
+      <div class="result-grid">
+        <div class="result-item">
+          <div class="result-label">Aadhaar Name</div>
+          <div class="result-value" id="res-aadhaar-name">—</div>
+        </div>
+        <div class="result-item">
+          <div class="result-label">Date of Birth</div>
+          <div class="result-value" id="res-aadhaar-dob">—</div>
+        </div>
+        <div class="result-item" style="grid-column:span 2">
+          <div class="result-label">Aadhaar Address</div>
+          <div class="result-value" id="res-aadhaar-address" style="font-size:13px;">—</div>
+        </div>
+        <div class="result-item">
+          <div class="result-label">Gender</div>
+          <div class="result-value" id="res-aadhaar-gender">—</div>
+        </div>
+      </div>
+
+      <!-- Name match -->
+      <div class="match-bar" id="match-bar">
+        <div class="match-icon" id="match-icon">🔄</div>
+        <div>
+          <div class="match-label" id="match-label">Cross-checking names...</div>
+          <div class="match-sub" id="match-sub">PAN name vs Aadhaar name</div>
+        </div>
+        <div class="match-score" id="match-score-el">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STEP 3: KYC COMPLETE ── -->
+  <div id="kyc-banner" style="display:none">
+    <div class="kyc-banner">
+      <div class="kyc-banner-icon">✅</div>
+      <div>
+        <div class="kyc-banner-title">KYC Complete</div>
+        <div class="kyc-banner-sub" id="kyc-banner-sub">
+          PAN verified · DigiLocker verified · Name match confirmed
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:16px;">
+      <button class="btn btn-success btn-full" onclick="proceedToAgreement()">
+        Proceed to Rental Agreement & eSign →
+      </button>
+    </div>
+  </div>
+
 </div>
 
 <script>
-  const SUPABASE_URL     = 'https://plumsrlhachflnsmwpsh.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsdW1zcmxoYWNoZmxuc213cHNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MzQ3MjgsImV4cCI6MjA5MDAxMDcyOH0.ioqsc76WaRv6F4_S7puz6Th9-B83D0IcDh7HYPhwRlI';
-  const { createClient } = supabase;
-  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // ─── CONFIG ───────────────────────────────────────────────
+  // Replace with your Supabase URL/anon key for auth if needed
+  // For now, verification_id is managed as a session variable
+  // In production, pass this from the landlord dashboard via URL param
 
-  let currentUser   = null;
-  let verificationId = null;
-  let agreementId   = null;
+  const VERIFICATION_ID = new URLSearchParams(window.location.search).get('vid') || null;
 
-  // ── INIT ────────────────────────────────────────────────────────────────
-  async function init() {
-    const params = new URLSearchParams(window.location.search);
-    agreementId = params.get('agreement_id') || null;
+  // Demo mode: set to false once live Surepass is confirmed working
+  const DEMO_MODE = !VERIFICATION_ID;
 
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) {
-      window.location.href = `login.html?next=${encodeURIComponent(window.location.href)}`;
-      return;
-    }
-    currentUser = session.user;
+  let state = {
+    verificationId: VERIFICATION_ID,
+    panDone: false,
+    digilockerDone: false,
+    digilockerUrl: null,
+    pollInterval: null,
+  };
 
-    document.getElementById('page-loading').style.display = 'none';
-    document.getElementById('page-content').style.display = 'block';
-  }
+  // ─── STEP 1: PAN VERIFY ───────────────────────────────────
+  async function verifyPAN() {
+    const name = document.getElementById('tenant-name').value.trim();
+    const pan  = document.getElementById('pan-number').value.trim().toUpperCase();
 
-  // ── STEP 1: PAYMENT ──────────────────────────────────────────────────────
-  async function handlePay() {
-    if (!window.PropLedgerPayment) {
-      showError('Payment system not loaded. Please refresh.');
-      return;
-    }
+    if (!name) return showError('pan-error', 'Please enter tenant name.');
+    if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) return showError('pan-error', 'Invalid PAN format. Example: ABCDE1234F');
 
-    await window.PropLedgerPayment.charge(
-      'verification',
-      {
-        agreementId: agreementId,
-        userId:      currentUser.id,
-        userName:    currentUser.user_metadata?.full_name || '',
-        userEmail:   currentUser.email || ''
-      },
-      async (paymentResult) => {
-        await createVerificationSession(paymentResult.paymentId);
-      }
-    );
-  }
-
-  async function createVerificationSession(paymentId) {
-    setBtn('pay-btn', 'pay-btn-text', 'pay-spinner', true, 'Setting up...');
-    try {
-      const { data: { session } } = await sb.auth.getSession();
-      const res = await fetch('/api/kyc', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
-          action:       'create-verification',
-          agreement_id: agreementId,
-          payment_id:   paymentId
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create session');
-
-      verificationId = data.verification_id;
-      goToStep(2);
-    } catch (err) {
-      showError(err.message);
-    } finally {
-      setBtn('pay-btn', 'pay-btn-text', 'pay-spinner', false, 'Pay ₹199 · Continue');
-    }
-  }
-
-  // ── STEP 2: PAN VERIFY ───────────────────────────────────────────────────
-  async function handleVerifyPAN() {
-    const pan = document.getElementById('pan-input').value.trim().toUpperCase();
-
-    if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) {
-      showError('Invalid PAN format. Example: ABCDE1234F');
-      return;
-    }
-    if (!verificationId) {
-      showError('Session lost. Please start again.');
-      return;
-    }
-
-    setBtn('verify-btn', 'verify-btn-text', 'verify-spinner', true, 'Verifying...');
-    hideError();
+    hideError('pan-error');
+    setBtnLoading('pan-btn', 'pan-spinner', 'pan-btn-text', true, 'Verifying...');
+    setPill('pan-pill', 'running', 'Verifying...');
 
     try {
-      const res = await fetch('/api/kyc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'pan-verify', pan_number: pan, verification_id: verificationId })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || data.detail || 'Verification failed');
+      let result;
 
-      showResult(data.data, pan);
-      goToStep(3);
-    } catch (err) {
-      showError(err.message);
-    } finally {
-      setBtn('verify-btn', 'verify-btn-text', 'verify-spinner', false, 'Verify PAN');
-    }
-  }
-
-  // ── SHOW RESULT ──────────────────────────────────────────────────────────
-  function showResult(data, pan) {
-    document.getElementById('r-name').textContent   = data.full_name   || '—';
-    document.getElementById('r-pan').textContent    = pan;
-    document.getElementById('r-dob').textContent    = data.date_of_birth || '—';
-    document.getElementById('r-type').textContent   = data.pan_type    || '—';
-    document.getElementById('r-status').textContent = data.pan_status  || 'VALID';
-  }
-
-  // ── NAVIGATION ───────────────────────────────────────────────────────────
-  function goToStep(step) {
-    // Panels
-    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-    const panels = ['panel-intro', 'panel-pan', 'panel-result'];
-    document.getElementById(panels[step - 1]).classList.add('active');
-
-    // Progress steps
-    ['ps1','ps2','ps3'].forEach((id, i) => {
-      const el = document.getElementById(id);
-      const numEl = document.getElementById(id + '-num');
-      if (i + 1 < step) {
-        el.className = 'step done';
-        numEl.textContent = '✓';
-      } else if (i + 1 === step) {
-        el.className = 'step active';
-        numEl.textContent = i + 1;
+      if (DEMO_MODE) {
+        // Demo mode — simulate API response
+        await delay(1800);
+        result = {
+          success: true,
+          data: {
+            full_name: name.toUpperCase(),
+            date_of_birth: '15/03/1990',
+            pan_status: 'VALID',
+            pan_type: 'INDIVIDUAL',
+            pan_number: pan,
+          },
+          verification_id: 'demo-' + Date.now(),
+        };
       } else {
-        el.className = 'step pending';
-        numEl.textContent = i + 1;
+        const res = await fetch('/api/kyc/pan-verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pan_number: pan, verification_id: state.verificationId }),
+        });
+        result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'PAN verification failed');
       }
-    });
 
-    // Step lines
-    document.getElementById('pl1').className = 'step-line' + (step > 1 ? ' done' : '');
-    document.getElementById('pl2').className = 'step-line' + (step > 2 ? ' done' : '');
+      state.verificationId = result.verification_id || state.verificationId;
+      state.panDone = true;
+
+      // Show result
+      const d = result.data;
+      setText('res-pan-name',   d.full_name || '—');
+      setText('res-pan-dob',    d.date_of_birth || '—');
+      setText('res-pan-status', d.pan_status || 'VALID');
+      setText('res-pan-type',   d.pan_type || 'INDIVIDUAL');
+      show('pan-result');
+
+      setBtnLoading('pan-btn', 'pan-spinner', 'pan-btn-text', false, '✓ PAN Verified');
+      document.getElementById('pan-btn').disabled = true;
+      document.getElementById('pan-number').disabled = true;
+      document.getElementById('tenant-name').disabled = true;
+      setPill('pan-pill', 'done', 'Verified ✓');
+      setStep(1, 'done');
+      setStep(2, 'active');
+
+      // Unlock DigiLocker card
+      enableCard('digilocker-card');
+
+    } catch (err) {
+      showError('pan-error', err.message || 'PAN verification failed. Please try again.');
+      setBtnLoading('pan-btn', 'pan-spinner', 'pan-btn-text', false, 'Retry PAN Verify');
+      setPill('pan-pill', 'error', 'Failed');
+    }
   }
 
-  function resetFlow() {
-    verificationId = null;
-    document.getElementById('pan-input').value = '';
-    hideError();
-    goToStep(1);
+  // ─── STEP 2: DIGILOCKER INIT ──────────────────────────────
+  async function initDigiLocker() {
+    hideError('digi-error');
+    setBtnLoading('digi-btn', 'digi-spinner', 'digi-btn-text', true, 'Generating link...');
+    setPill('digi-pill', 'running', 'Initiating...');
+
+    try {
+      let result;
+
+      if (DEMO_MODE) {
+        await delay(1500);
+        result = {
+          success: true,
+          digilocker_url: 'https://digilocker.gov.in/consent?token=demo_abc123xyz',
+        };
+      } else {
+        const res = await fetch('/api/kyc/digilocker-init', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ verification_id: state.verificationId }),
+        });
+        result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to generate DigiLocker link');
+      }
+
+      state.digilockerUrl = result.digilocker_url;
+      setText('digi-link-text', result.digilocker_url);
+      show('digi-link-box');
+      show('polling-row');
+      setBtnLoading('digi-btn', 'digi-spinner', 'digi-btn-text', false, 'Regenerate Link');
+      setPill('digi-pill', 'warn', 'Awaiting Tenant');
+
+    } catch (err) {
+      showError('digi-error', err.message);
+      setBtnLoading('digi-btn', 'digi-spinner', 'digi-btn-text', false, 'Retry');
+      setPill('digi-pill', 'error', 'Failed');
+    }
   }
 
-  // ── HELPERS ──────────────────────────────────────────────────────────────
-  function showError(msg) {
-    const el = document.getElementById('main-alert');
-    document.getElementById('alert-text').textContent = msg;
-    el.classList.add('show');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  // ─── STEP 2: DIGILOCKER POLL ──────────────────────────────
+  async function pollDigiLocker() {
+    setText('polling-text', 'Checking consent status...');
+    document.getElementById('poll-btn').disabled = true;
+
+    try {
+      let result;
+
+      if (DEMO_MODE) {
+        await delay(1200);
+        // Simulate completed consent in demo
+        result = {
+          success: true,
+          status: 'completed',
+          kyc_status: 'KYC_COMPLETE',
+          data: {
+            aadhaar_name: document.getElementById('tenant-name').value.trim().toUpperCase(),
+            date_of_birth: '15/03/1990',
+            gender: 'Male',
+            address: 'Flat 4B, Sector 21, Noida, Uttar Pradesh - 201301',
+          },
+          name_match: {
+            score: 87,
+            status: 'matched',
+            pan_name: document.getElementById('tenant-name').value.trim().toUpperCase(),
+            aadhaar_name: document.getElementById('tenant-name').value.trim().toUpperCase(),
+          },
+        };
+      } else {
+        const res = await fetch('/api/kyc/digilocker-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ verification_id: state.verificationId }),
+        });
+        result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to check status');
+      }
+
+      if (result.status === 'pending') {
+        setText('polling-text', 'Tenant has not yet completed. Try again in a moment.');
+        document.getElementById('poll-btn').disabled = false;
+        return;
+      }
+
+      // Completed!
+      clearInterval(state.pollInterval);
+      state.digilockerDone = true;
+
+      const d = result.data;
+      setText('res-aadhaar-name',    d.aadhaar_name || '—');
+      setText('res-aadhaar-dob',     d.date_of_birth || '—');
+      setText('res-aadhaar-address', d.address || '—');
+      setText('res-aadhaar-gender',  d.gender || '—');
+      show('digi-result');
+      hide('polling-row');
+
+      // Name match UI
+      const match = result.name_match;
+      const score = match?.score ?? 0;
+      const scoreEl = document.getElementById('match-score-el');
+      scoreEl.textContent = score + '%';
+      scoreEl.className = 'match-score ' + (score >= 70 ? 'score-high' : score >= 50 ? 'score-mid' : 'score-low');
+
+      if (match?.status === 'matched') {
+        setText('match-icon', '✅');
+        setText('match-label', 'Names Match — Identity Confirmed');
+        setText('match-sub', `PAN: "${match.pan_name}" · Aadhaar: "${match.aadhaar_name}"`);
+      } else if (match?.status === 'mismatch') {
+        setText('match-icon', '⚠️');
+        setText('match-label', 'Name Mismatch — Manual Review Required');
+        setText('match-sub', `PAN: "${match.pan_name}" · Aadhaar: "${match.aadhaar_name}"`);
+      }
+
+      setPill('digi-pill', 'done', 'Verified ✓');
+      document.getElementById('digi-btn').disabled = true;
+      setStep(2, 'done');
+      setStep(3, 'active');
+
+      // Show KYC banner
+      if (result.kyc_status === 'KYC_COMPLETE') {
+        const matchNote = match?.status === 'matched' ? 'Name match confirmed ✓' : 'Review name mismatch before proceeding';
+        setText('kyc-banner-sub', `PAN verified · DigiLocker verified · ${matchNote}`);
+        show('kyc-banner');
+        setStep(3, 'done');
+      }
+
+    } catch (err) {
+      setText('polling-text', 'Error checking status: ' + err.message);
+      document.getElementById('poll-btn').disabled = false;
+    }
   }
 
-  function hideError() {
-    document.getElementById('main-alert').classList.remove('show');
+  function autoPolling() {
+    if (state.pollInterval) {
+      clearInterval(state.pollInterval);
+      state.pollInterval = null;
+      setText('polling-text', 'Auto-check stopped.');
+      return;
+    }
+    setText('polling-text', 'Auto-checking every 30 seconds...');
+    pollDigiLocker();
+    state.pollInterval = setInterval(pollDigiLocker, 30000);
   }
 
-  function setBtn(btnId, textId, spinnerId, loading, text) {
+  // ─── PROCEED ─────────────────────────────────────────────
+  function proceedToAgreement() {
+    // Navigate to agreement page with verification_id
+    const vid = state.verificationId;
+    window.location.href = vid ? `agreement.html?vid=${vid}` : 'agreement.html';
+  }
+
+  // ─── COPY LINK ────────────────────────────────────────────
+  async function copyLink() {
+    const url = state.digilockerUrl || document.getElementById('digi-link-text').textContent;
+    try {
+      await navigator.clipboard.writeText(url);
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+    } catch { }
+  }
+
+  // ─── HELPERS ─────────────────────────────────────────────
+  function setStep(num, state) {
+    const dot = document.getElementById('dot-' + num);
+    const lbl = document.getElementById('lbl-' + num);
+    const conn = document.getElementById('conn-' + num);
+    dot.className = 'step-dot ' + state;
+    lbl.className = 'step-label ' + state;
+    if (state === 'done' && dot) dot.textContent = '✓';
+    if (conn) conn.className = 'step-connector ' + (state === 'done' ? 'done' : '');
+  }
+
+  function enableCard(id) {
+    const el = document.getElementById(id);
+    el.style.opacity = '1';
+    el.style.pointerEvents = 'auto';
+  }
+
+  function setPill(id, type, label) {
+    const el = document.getElementById(id);
+    el.className = 'status-pill pill-' + type;
+    el.textContent = label;
+  }
+
+  function setBtnLoading(btnId, spinnerId, textId, loading, label) {
     document.getElementById(btnId).disabled = loading;
-    document.getElementById(textId).textContent = text;
-    document.getElementById(spinnerId).style.display = loading ? 'inline-block' : 'none';
+    document.getElementById(spinnerId).style.display = loading ? 'block' : 'none';
+    document.getElementById(textId).textContent = label;
   }
 
-  init();
+  function showError(id, msg) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+
+  function hideError(id) {
+    document.getElementById(id).classList.remove('show');
+  }
+
+  function show(id) { document.getElementById(id).style.display = 'block'; }
+  function hide(id) { document.getElementById(id).style.display = 'none'; }
+  function setText(id, val) { document.getElementById(id).textContent = val; }
+  function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 </script>
 </body>
 </html>
