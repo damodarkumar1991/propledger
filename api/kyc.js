@@ -176,7 +176,7 @@ async function digilockerInit(req, res) {
   let surepassData;
   try {
     const { data } = await axios.post(
-      'https://kyc-api.surepass.app/api/v1/identity/digilocker',
+      'https://kyc-api.surepass.app/api/v1/digilocker/generate-url',
       { client_id: verification_id },
       { headers: { 'Authorization': `Bearer ${process.env.SUREPASS_TOKEN}` } }
     );
