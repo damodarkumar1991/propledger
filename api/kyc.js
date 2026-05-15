@@ -2,6 +2,7 @@
 // Actions: create-verification | init-verification | pan-verify | digilocker-init | digilocker-status
 
 const { createClient } = require('@supabase/supabase-js');
+const axios = require('axios');
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -99,20 +100,24 @@ async function panVerify(req, res) {
     return res.status(400).json({ error: 'Invalid PAN format. Expected: ABCDE1234F' });
   }
 
-  // ✅ Correct endpoint: identity/pan-comprehensive (not pan/pan-comprehensive)
-  const surepassRes = await fetch('https://kyc-api.surepass.app/api/v1/identity/pan-comprehensive', {
-    method: 'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'Authorization': `Bearer ${process.env.SUREPASS_TOKEN}`,
-    },
-    body: JSON.stringify({ id_number: pan_number.toUpperCase() }),
-  });
+  let surepassData;
+  try {
+    const { data } = await axios.post(
+      'https://kyc-api.surepass.app/api/v1/identity/pan-comprehensive',
+      { id_number: pan_number.toUpperCase() },
+      { headers: { 'Authorization': `Bearer ${process.env.SUREPASS_TOKEN}` } }
+    );
+    surepassData = data;
+  } catch (err) {
+    const data = err.response?.data;
+    console.error('Surepass PAN error:', data);
+    return res.status(422).json({
+      error:  'PAN verification failed',
+      detail: data?.message || err.message,
+    });
+  }
 
-  const surepassData = await surepassRes.json();
-
-  if (!surepassRes.ok || !surepassData.success) {
-    console.error('Surepass PAN error:', surepassData);
+  if (!surepassData.success) {
     return res.status(422).json({
       error:  'PAN verification failed',
       detail: surepassData.message || 'Invalid PAN or not found',
@@ -168,19 +173,24 @@ async function digilockerInit(req, res) {
     return res.status(400).json({ error: 'verification_id is required' });
   }
 
-  const surepassRes = await fetch('https://kyc-api.surepass.app/api/v1/identity/digilocker', {
-    method: 'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'Authorization': `Bearer ${process.env.SUREPASS_TOKEN}`,
-    },
-    body: JSON.stringify({ client_id: verification_id }),
-  });
+  let surepassData;
+  try {
+    const { data } = await axios.post(
+      'https://kyc-api.surepass.app/api/v1/identity/digilocker',
+      { client_id: verification_id },
+      { headers: { 'Authorization': `Bearer ${process.env.SUREPASS_TOKEN}` } }
+    );
+    surepassData = data;
+  } catch (err) {
+    const data = err.response?.data;
+    console.error('Surepass DigiLocker init error:', data);
+    return res.status(422).json({
+      error:  'Failed to initiate DigiLocker',
+      detail: data?.message || err.message,
+    });
+  }
 
-  const surepassData = await surepassRes.json();
-
-  if (!surepassRes.ok || !surepassData.success) {
-    console.error('Surepass DigiLocker init error:', surepassData);
+  if (!surepassData.success) {
     return res.status(422).json({
       error:  'Failed to initiate DigiLocker',
       detail: surepassData.message || 'Surepass error',
@@ -238,19 +248,17 @@ async function digilockerStatus(req, res) {
     return res.status(200).json({ success: true, status: 'completed', message: 'Already verified' });
   }
 
-  // Poll Surepass
-  const surepassRes = await fetch(
-    `https://kyc-api.surepass.app/api/v1/identity/digilocker/status/${record.digilocker_client_id}`,
-    {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${process.env.SUREPASS_TOKEN}`,
-        'Content-Type':  'application/json',
-      },
-    }
-  );
-
-  const surepassData = await surepassRes.json();
+  let surepassData;
+  try {
+    const { data } = await axios.get(
+      `https://kyc-api.surepass.app/api/v1/identity/digilocker/status/${record.digilocker_client_id}`,
+      { headers: { 'Authorization': `Bearer ${process.env.SUREPASS_TOKEN}` } }
+    );
+    surepassData = data;
+  } catch (err) {
+    console.error('Surepass DigiLocker status error:', err.response?.data);
+    return res.status(422).json({ error: 'Failed to check DigiLocker status' });
+  }
 
   // Still waiting
   if (!surepassData.success || surepassData.data?.status === 'pending') {
