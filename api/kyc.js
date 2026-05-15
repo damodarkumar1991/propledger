@@ -67,21 +67,21 @@ async function createVerification(req, res) {
 
 // ── INIT VERIFICATION (no auth — called on page load) ────────────────────────
 async function initVerification(req, res) {
+  // Minimal insert — only columns that exist in the original table
+  // New columns (digilocker_*, kyc_status etc.) are added via migration
+  // If migration not yet run, this still succeeds with just payment_id + payment_status
   const { data, error } = await supabase
     .from('tenant_verifications')
     .insert({
-      kyc_status:          'NOT_STARTED',
-      pan_verified:        false,
-      digilocker_verified: false,
-      digilocker_status:   'not_started',
-      created_at:          new Date().toISOString(),
+      payment_id:     'kyc_init',
+      payment_status: 'paid',
     })
     .select('id')
     .single();
 
   if (error) {
     console.error('Init verification error:', error);
-    return res.status(500).json({ error: 'Failed to create verification session' });
+    return res.status(500).json({ error: error.message });
   }
 
   return res.status(200).json({ success: true, verification_id: data.id });
