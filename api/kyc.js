@@ -1,5 +1,5 @@
 // api/kyc.js — Consolidated KYC handler for PropLedger
-// Actions: create-verification | pan-verify
+// Actions: create-verification | init-verification | pan-verify | digilocker-init | digilocker-status
 
 const { createClient } = require('@supabase/supabase-js');
 
@@ -22,8 +22,11 @@ module.exports = async function handler(req, res) {
   if (!action) return res.status(400).json({ error: 'action is required' });
 
   try {
-    if (action === 'create-verification') return await createVerification(req, res);
-    if (action === 'pan-verify')          return await panVerify(req, res);
+    if (action === 'create-verification')  return await createVerification(req, res);
+    if (action === 'init-verification')    return await initVerification(req, res);
+    if (action === 'pan-verify')           return await panVerify(req, res);
+    if (action === 'digilocker-init')      return await digilockerInit(req, res);
+    if (action === 'digilocker-status')    return await digilockerStatus(req, res);
     return res.status(400).json({ error: `Unknown action: ${action}` });
   } catch (err) {
     console.error(`KYC [${action}] error:`, err.message);
@@ -31,7 +34,7 @@ module.exports = async function handler(req, res) {
   }
 };
 
-// ── CREATE VERIFICATION SESSION ──────────────────────────────────────────────
+// ── CREATE VERIFICATION (auth-gated, from dashboard) ─────────────────────────
 async function createVerification(req, res) {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
@@ -41,8 +44,6 @@ async function createVerification(req, res) {
   if (authError || !user) return res.status(401).json({ error: 'Invalid session' });
 
   const { agreement_id, payment_id } = req.body;
-  // Payment bypass for testing — remove comment below to enforce payment
-  // if (!payment_id) return res.status(400).json({ error: 'payment_id is required' });
 
   const { data, error } = await supabase
     .from('tenant_verifications')
@@ -51,12 +52,35 @@ async function createVerification(req, res) {
       agreement_id:   agreement_id || null,
       payment_id:     payment_id || 'bypass',
       payment_status: 'paid',
+      kyc_status:     'NOT_STARTED',
     })
     .select('id')
     .single();
 
   if (error) {
     console.error('Create verification error:', error);
+    return res.status(500).json({ error: 'Failed to create verification session' });
+  }
+
+  return res.status(200).json({ success: true, verification_id: data.id });
+}
+
+// ── INIT VERIFICATION (no auth — called on page load) ────────────────────────
+async function initVerification(req, res) {
+  const { data, error } = await supabase
+    .from('tenant_verifications')
+    .insert({
+      kyc_status:          'NOT_STARTED',
+      pan_verified:        false,
+      digilocker_verified: false,
+      digilocker_status:   'not_started',
+      created_at:          new Date().toISOString(),
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error('Init verification error:', error);
     return res.status(500).json({ error: 'Failed to create verification session' });
   }
 
@@ -75,7 +99,8 @@ async function panVerify(req, res) {
     return res.status(400).json({ error: 'Invalid PAN format. Expected: ABCDE1234F' });
   }
 
-  const surepassRes = await fetch('https://kyc-api.surepass.app/api/v1/pan/pan-comprehensive', {
+  // ✅ Correct endpoint: identity/pan-comprehensive (not pan/pan-comprehensive)
+  const surepassRes = await fetch('https://kyc-api.surepass.app/api/v1/identity/pan-comprehensive', {
     method: 'POST',
     headers: {
       'Content-Type':  'application/json',
@@ -133,4 +158,169 @@ async function panVerify(req, res) {
       pan_number:    safeData.pan_number,
     },
   });
+}
+
+// ── DIGILOCKER INIT ──────────────────────────────────────────────────────────
+async function digilockerInit(req, res) {
+  const { verification_id } = req.body;
+
+  if (!verification_id) {
+    return res.status(400).json({ error: 'verification_id is required' });
+  }
+
+  const surepassRes = await fetch('https://kyc-api.surepass.app/api/v1/identity/digilocker', {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${process.env.SUREPASS_TOKEN}`,
+    },
+    body: JSON.stringify({ client_id: verification_id }),
+  });
+
+  const surepassData = await surepassRes.json();
+
+  if (!surepassRes.ok || !surepassData.success) {
+    console.error('Surepass DigiLocker init error:', surepassData);
+    return res.status(422).json({
+      error:  'Failed to initiate DigiLocker',
+      detail: surepassData.message || 'Surepass error',
+    });
+  }
+
+  const { url, client_id } = surepassData.data;
+
+  const { error: dbError } = await supabase
+    .from('tenant_verifications')
+    .update({
+      digilocker_client_id:    client_id || verification_id,
+      digilocker_link:         url,
+      digilocker_status:       'pending',
+      digilocker_initiated_at: new Date().toISOString(),
+    })
+    .eq('id', verification_id);
+
+  if (dbError) {
+    console.error('Supabase update error:', dbError);
+    return res.status(500).json({ error: 'Failed to save DigiLocker session' });
+  }
+
+  return res.status(200).json({
+    success: true,
+    digilocker_url: url,
+  });
+}
+
+// ── DIGILOCKER STATUS ────────────────────────────────────────────────────────
+async function digilockerStatus(req, res) {
+  const { verification_id } = req.body;
+
+  if (!verification_id) {
+    return res.status(400).json({ error: 'verification_id is required' });
+  }
+
+  // Fetch current record
+  const { data: record, error: fetchError } = await supabase
+    .from('tenant_verifications')
+    .select('digilocker_client_id, pan_data, pan_verified, digilocker_status')
+    .eq('id', verification_id)
+    .single();
+
+  if (fetchError || !record) {
+    return res.status(404).json({ error: 'Verification record not found' });
+  }
+
+  if (!record.digilocker_client_id) {
+    return res.status(400).json({ error: 'DigiLocker not yet initiated' });
+  }
+
+  // Already completed — return cached
+  if (record.digilocker_status === 'completed') {
+    return res.status(200).json({ success: true, status: 'completed', message: 'Already verified' });
+  }
+
+  // Poll Surepass
+  const surepassRes = await fetch(
+    `https://kyc-api.surepass.app/api/v1/identity/digilocker/status/${record.digilocker_client_id}`,
+    {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${process.env.SUREPASS_TOKEN}`,
+        'Content-Type':  'application/json',
+      },
+    }
+  );
+
+  const surepassData = await surepassRes.json();
+
+  // Still waiting
+  if (!surepassData.success || surepassData.data?.status === 'pending') {
+    return res.status(200).json({ success: true, status: 'pending', message: 'Tenant has not completed consent yet.' });
+  }
+
+  const digiData = surepassData.data;
+
+  const aadhaarInfo = {
+    full_name:     digiData.name     || digiData.full_name || '',
+    date_of_birth: digiData.dob      || digiData.date_of_birth || '',
+    gender:        digiData.gender   || '',
+    address:       digiData.address  || digiData.current_address || '',
+    verified_at:   new Date().toISOString(),
+  };
+
+  // Cross-match PAN name vs Aadhaar name
+  let nameMatchResult = { score: 0, status: 'not_checked' };
+  if (record.pan_verified && record.pan_data?.full_name) {
+    const score = nameMatchScore(record.pan_data.full_name, aadhaarInfo.full_name);
+    nameMatchResult = {
+      score,
+      status:       score >= 60 ? 'matched' : 'mismatch',
+      pan_name:     record.pan_data.full_name,
+      aadhaar_name: aadhaarInfo.full_name,
+    };
+  }
+
+  const kycComplete = record.pan_verified && nameMatchResult.status !== 'mismatch';
+
+  await supabase
+    .from('tenant_verifications')
+    .update({
+      digilocker_verified: true,
+      digilocker_status:   'completed',
+      digilocker_data:     aadhaarInfo,
+      aadhaar_name:        aadhaarInfo.full_name,
+      aadhaar_dob:         aadhaarInfo.date_of_birth,
+      aadhaar_address:     aadhaarInfo.address,
+      aadhaar_gender:      aadhaarInfo.gender,
+      name_match_score:    nameMatchResult.score,
+      name_match_status:   nameMatchResult.status,
+      kyc_status:          kycComplete ? 'KYC_COMPLETE' : 'KYC_PARTIAL',
+      kyc_completed_at:    kycComplete ? new Date().toISOString() : null,
+    })
+    .eq('id', verification_id);
+
+  return res.status(200).json({
+    success:    true,
+    status:     'completed',
+    kyc_status: kycComplete ? 'KYC_COMPLETE' : 'KYC_PARTIAL',
+    data: {
+      aadhaar_name:  aadhaarInfo.full_name,
+      date_of_birth: aadhaarInfo.date_of_birth,
+      gender:        aadhaarInfo.gender,
+      address:       aadhaarInfo.address,
+    },
+    name_match: nameMatchResult,
+  });
+}
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function normaliseName(name = '') {
+  return name.toLowerCase().replace(/\./g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function nameMatchScore(nameA = '', nameB = '') {
+  const a = normaliseName(nameA).split(' ').filter(Boolean);
+  const b = normaliseName(nameB).split(' ').filter(Boolean);
+  if (!a.length || !b.length) return 0;
+  const matches = a.filter(w => b.includes(w));
+  return Math.round((matches.length / Math.max(a.length, b.length)) * 100);
 }

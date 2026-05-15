@@ -473,22 +473,46 @@
 
 <script>
   // ─── CONFIG ───────────────────────────────────────────────
-  // Replace with your Supabase URL/anon key for auth if needed
-  // For now, verification_id is managed as a session variable
-  // In production, pass this from the landlord dashboard via URL param
-
-  const VERIFICATION_ID = new URLSearchParams(window.location.search).get('vid') || null;
-
-  // Demo mode: set to false once live Surepass is confirmed working
-  const DEMO_MODE = !VERIFICATION_ID;
+  // Always live — verification_id is created on page load via /api/kyc/init-verification
+  // If ?vid= is passed (from dashboard), we reuse that session instead
 
   let state = {
-    verificationId: VERIFICATION_ID,
+    verificationId: new URLSearchParams(window.location.search).get('vid') || null,
+    ready: false,   // true once verification_id exists
     panDone: false,
     digilockerDone: false,
     digilockerUrl: null,
     pollInterval: null,
   };
+
+  // ─── INIT: create Supabase row on page load ───────────────
+  async function initSession() {
+    // If ?vid= already passed, skip creation
+    if (state.verificationId) {
+      state.ready = true;
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/kyc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'init-verification' }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.verification_id) throw new Error('Could not start session');
+      state.verificationId = data.verification_id;
+      state.ready = true;
+      // Update URL so page refresh keeps same session
+      window.history.replaceState(null, '', `?vid=${data.verification_id}`);
+    } catch (err) {
+      showError('pan-error', 'Could not connect to server. Please refresh and try again.');
+      document.getElementById('pan-btn').disabled = true;
+    }
+  }
+
+  // Kick off on load
+  initSession();
 
   // ─── STEP 1: PAN VERIFY ───────────────────────────────────
   async function verifyPAN() {
@@ -503,33 +527,16 @@
     setPill('pan-pill', 'running', 'Verifying...');
 
     try {
-      let result;
+      if (!state.ready) return showError('pan-error', 'Session not ready. Please refresh.');
 
-      if (DEMO_MODE) {
-        // Demo mode — simulate API response
-        await delay(1800);
-        result = {
-          success: true,
-          data: {
-            full_name: name.toUpperCase(),
-            date_of_birth: '15/03/1990',
-            pan_status: 'VALID',
-            pan_type: 'INDIVIDUAL',
-            pan_number: pan,
-          },
-          verification_id: 'demo-' + Date.now(),
-        };
-      } else {
-        const res = await fetch('/api/kyc/pan-verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pan_number: pan, verification_id: state.verificationId }),
-        });
-        result = await res.json();
-        if (!res.ok) throw new Error(result.error || 'PAN verification failed');
-      }
+      const res = await fetch('/api/kyc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'pan-verify', pan_number: pan, verification_id: state.verificationId }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'PAN verification failed');
 
-      state.verificationId = result.verification_id || state.verificationId;
       state.panDone = true;
 
       // Show result
@@ -565,23 +572,13 @@
     setPill('digi-pill', 'running', 'Initiating...');
 
     try {
-      let result;
-
-      if (DEMO_MODE) {
-        await delay(1500);
-        result = {
-          success: true,
-          digilocker_url: 'https://digilocker.gov.in/consent?token=demo_abc123xyz',
-        };
-      } else {
-        const res = await fetch('/api/kyc/digilocker-init', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ verification_id: state.verificationId }),
-        });
-        result = await res.json();
-        if (!res.ok) throw new Error(result.error || 'Failed to generate DigiLocker link');
-      }
+      const res = await fetch('/api/kyc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'digilocker-init', verification_id: state.verificationId }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to generate DigiLocker link');
 
       state.digilockerUrl = result.digilocker_url;
       setText('digi-link-text', result.digilocker_url);
@@ -603,37 +600,13 @@
     document.getElementById('poll-btn').disabled = true;
 
     try {
-      let result;
-
-      if (DEMO_MODE) {
-        await delay(1200);
-        // Simulate completed consent in demo
-        result = {
-          success: true,
-          status: 'completed',
-          kyc_status: 'KYC_COMPLETE',
-          data: {
-            aadhaar_name: document.getElementById('tenant-name').value.trim().toUpperCase(),
-            date_of_birth: '15/03/1990',
-            gender: 'Male',
-            address: 'Flat 4B, Sector 21, Noida, Uttar Pradesh - 201301',
-          },
-          name_match: {
-            score: 87,
-            status: 'matched',
-            pan_name: document.getElementById('tenant-name').value.trim().toUpperCase(),
-            aadhaar_name: document.getElementById('tenant-name').value.trim().toUpperCase(),
-          },
-        };
-      } else {
-        const res = await fetch('/api/kyc/digilocker-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ verification_id: state.verificationId }),
-        });
-        result = await res.json();
-        if (!res.ok) throw new Error(result.error || 'Failed to check status');
-      }
+      const res = await fetch('/api/kyc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'digilocker-status', verification_id: state.verificationId }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to check status');
 
       if (result.status === 'pending') {
         setText('polling-text', 'Tenant has not yet completed. Try again in a moment.');
